@@ -1,0 +1,11 @@
+{
+  "name": "rehab-dashboard-poc",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "echo \"API + Web dev scripts coming next\""
+  }
+}
