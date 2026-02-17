@@ -1,6 +1,8 @@
 require("dotenv").config();
 const Hapi = require("@hapi/hapi");
 
+const { db } = require("./firestore");
+
 const init = async () => {
   const server = Hapi.server({
     port: process.env.PORT || 4000,
@@ -19,13 +21,12 @@ const init = async () => {
   server.route({
     method: "GET",
     path: "/patients",
-    handler: () => {
-      return [
-        { id: "p1", name: "Mariam", room: "1", bed: "Bed 1" },
-        { id: "p2", name: "Geraldine", room: "1", bed: "Bed 2" },
-        { id: "p3", name: "Mary", room: "1", bed: "Bed 3" },
-        { id: "p4", name: "Eimear", room: "1", bed: "Bed 4" }
-      ];
+    handler: async () => {
+      const snapshot = await db().collection("patients").get();
+      return snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
     }
   });
 

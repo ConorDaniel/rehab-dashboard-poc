@@ -1,35 +1,42 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { useEffect, useState } from "react";
 
-function App() {
-  const [count, setCount] = useState(0)
+type Patient = { id: string; name: string; room: string; bed: string };
+
+export default function App() {
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:4000";
+
+    fetch(`${baseUrl}/patients`)
+      .then(async (res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return (await res.json()) as Patient[];
+      })
+      .then(setPatients)
+      .catch((e: unknown) => {
+        setError(e instanceof Error ? e.message : String(e));
+      });
+  }, []);
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
-}
+    <div style={{ fontFamily: "system-ui", padding: 24 }}>
+      <h1>Rehab Dashboard PoC</h1>
 
-export default App
+      <h2>Patients</h2>
+      {error && <p style={{ color: "crimson" }}>Error: {error}</p>}
+      {!error && patients.length === 0 && <p>Loading…</p>}
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
+        {patients.map((p) => (
+          <div key={p.id} style={{ border: "1px solid #ddd", borderRadius: 12, padding: 16 }}>
+            <div style={{ fontSize: 18, fontWeight: 700 }}>{p.name}</div>
+            <div>Room: {p.room}</div>
+            <div>Bed: {p.bed}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
