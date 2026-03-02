@@ -1,0 +1,10 @@
+{
+  "apiBaseUrl": "http://192.168.1.49:4000",
+  "piToken": "Thisisarandomphrasetoconnectthepitothemac",
+  "sensors": [
+    { "patientId": "p1", "mac": "E1:B7:EA:2D:8A:AE" },
+    { "patientId": "p2", "mac": "AA:BB:CC:DD:EE:FF" },
+    { "patientId": "p3", "mac": "11:22:33:44:55:66" },
+    { "patientId": "p4", "mac": "77:88:99:AA:BB:CC" }
+  ]
+}
