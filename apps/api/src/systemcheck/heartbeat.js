@@ -6,6 +6,7 @@ function registerHeartbeatRoutes(server) {
     method: "POST",
     path: "/heartbeat",
     handler: (request, h) => {
+        console.log("Heartbeat received:", request.payload);
 
       const { patientId, connected } = request.payload;
 
