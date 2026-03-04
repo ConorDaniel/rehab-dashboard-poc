@@ -1,6 +1,8 @@
 require("dotenv").config();
-const Hapi = require("@hapi/hapi");
 
+const { registerHeartbeatRoutes } = require("./systemcheck/heartbeat");
+
+const Hapi = require("@hapi/hapi");
 const { db } = require("./firestore");
 
 const init = async () => {
@@ -11,6 +13,8 @@ const init = async () => {
       cors: { origin: ["*"] }
     }
   });
+
+  registerHeartbeatRoutes(server);
 
   server.route({
     method: "GET",
@@ -27,6 +31,15 @@ const init = async () => {
         id: doc.id,
         ...doc.data()
       }));
+    }
+  });
+
+  server.route({
+    method: "POST",
+    path: "/telemetry",
+    handler: (request, h) => {
+      console.log("Telemetry received:", request.payload);
+      return { ok: true };
     }
   });
 
