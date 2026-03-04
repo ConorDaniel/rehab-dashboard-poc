@@ -3,6 +3,8 @@ import json
 import math
 import time
 from typing import Dict, Any, Optional
+CONNECT_LOCK = asyncio.Lock()
+
 
 import requests
 from device_model import DeviceModel
@@ -84,16 +86,22 @@ async def sender_loop(patient_id: str, api_base: str, token: str):
             print(f"[{patient_id}] POST failed: {e}")
 
 async def connect_one(patient_id: str, mac: str):
-    """
-    Connect and keep running; if it drops, retry.
-    """
     while True:
         try:
             dm = DeviceModel(patient_id, mac, make_handler(patient_id))
-            await dm.openDevice()   # typically blocks until disconnect
-            print(f"[{patient_id}] disconnected; retrying in 2s...")
+
+            # LOCK ONLY THE CONNECT PHASE
+            async with CONNECT_LOCK:
+                print(f"[{patient_id}] connecting...")
+                await asyncio.sleep(0.5)  # small delay helps BlueZ
+                connect_task = asyncio.create_task(dm.openDevice())
+
+            # Now streaming happens WITHOUT lock
+            await connect_task
+
         except Exception as e:
             print(f"[{patient_id}] connect error: {e} (retrying in 3s)")
+
         await asyncio.sleep(3)
 
 async def main():

@@ -1,10 +1,9 @@
 {
-  "apiBaseUrl": "http://192.168.1.49:4000",
+  "apiBaseUrl": "http://192.168.1.7:4000",
   "piToken": "Thisisarandomphrasetoconnectthepitothemac",
   "sensors": [
-    { "patientId": "p1", "mac": "E1:B7:EA:2D:8A:AE" },
-    { "patientId": "p2", "mac": "AA:BB:CC:DD:EE:FF" },
-    { "patientId": "p3", "mac": "11:22:33:44:55:66" },
-    { "patientId": "p4", "mac": "77:88:99:AA:BB:CC" }
+    { "patientId": "p1", "mac": "C7:BC:52:0B:E1:7F" },
+    { "patientId": "p2", "mac": "E1:B7:EA:2D:8A:AE" },
+    { "patientId": "p3", "mac": "C6:A9:98:DA:3F:1C" }
   ]
 }

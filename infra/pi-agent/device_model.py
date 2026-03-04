@@ -8,7 +8,7 @@ from bleak import BleakClient
 # DDevice instance
 class DeviceModel:
     # region
-    deviceName = "我的设备"  # 设备名称 Device name
+    deviceName = "BLE Sensor"  # 设备名称 Device name
     deviceData = {}  # 设备数据字典 Device Data Dictionary
     isOpen = False  # 设备是否开启 Is the device open
     TempBytes = []  # 临时数组 Temporary array
