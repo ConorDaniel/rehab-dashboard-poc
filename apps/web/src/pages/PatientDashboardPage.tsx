@@ -2,6 +2,15 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { fetchPatientDashboard } from "../services/patientService";
 import type { PatientDashboard } from "../types/patientDashboard";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  CartesianGrid,
+} from "recharts";
 
 export default function PatientDashboardPage() {
   const { id } = useParams();
@@ -67,13 +76,21 @@ export default function PatientDashboardPage() {
 
             <section className="dashboard-panel">
               <h2 className="dashboard-panel__title">Steps — Last 7 Days</h2>
-              <div className="metric-list">
-                {dashboard.metrics.map((day) => (
-                  <div key={day.date} className="metric-row">
-                    <span>{day.date}</span>
-                    <strong>{day.steps} steps</strong>
-                  </div>
-                ))}
+
+              <div style={{ width: "100%", height: 260 }}>
+              <ResponsiveContainer>
+              <BarChart data={dashboard.metrics}>
+              <CartesianGrid strokeDasharray="3 3" />
+
+              <XAxis dataKey="date" />
+
+              <YAxis />
+
+              <Tooltip />
+
+              <Bar dataKey="steps" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+              </BarChart>
+              </ResponsiveContainer>
               </div>
             </section>
 
