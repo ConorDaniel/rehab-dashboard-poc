@@ -34,6 +34,32 @@ const init = async () => {
     },
   });
 
+    server.route({
+    method: "GET",
+    path: "/patients/{id}/dashboard",
+    handler: async (request, h) => {
+      const { id } = request.params;
+
+      const patientRef = db().collection("patients").doc(id);
+      const patientSnap = await patientRef.get();
+
+      if (!patientSnap.exists) {
+        return h.response({ message: "Patient not found" }).code(404);
+      }
+
+      const patient = patientSnap.data();
+
+      return {
+        patientId: id,
+        patientName: patient.name,
+        room: patient.room,
+        bed: patient.bed,
+        lastUpdated: patient.dashboard?.lastUpdated ?? null,
+        metrics: patient.dashboard?.metrics ?? [],
+      };
+    },
+  });
+
   server.route({
     method: "POST",
     path: "/telemetry",
