@@ -1,3 +1,5 @@
+const { db } = require("../firestore");
+
 const lastSeen = new Map();
 
 function registerHeartbeatRoutes(server) {
@@ -5,15 +7,45 @@ function registerHeartbeatRoutes(server) {
   server.route({
     method: "POST",
     path: "/heartbeat",
-    handler: (request, h) => {
-        console.log("Heartbeat received:", request.payload);
+    handler: async (request, h) => {
+      console.log("Heartbeat received:", request.payload);
 
-      const { patientId, connected } = request.payload;
+      const { patientId, connected, timestamp, lastFrameAgeSec } = request.payload;
 
+      if (!patientId) {
+        return h.response({ message: "patientId required" }).code(400);
+      }
+
+      // Update in-memory map (existing behaviour)
       lastSeen.set(patientId, {
         connected,
         timestamp: Date.now()
       });
+
+      try {
+
+        const patientRef = db().collection("patients").doc(patientId);
+        const snap = await patientRef.get();
+
+        if (!snap.exists) {
+          return h.response({ message: "Patient not found" }).code(404);
+        }
+
+        await patientRef.set(
+          {
+            sensor: {
+              lastHeartbeatAt: timestamp || new Date().toISOString(),
+              connected: connected ?? false,
+              lastFrameAgeSec: lastFrameAgeSec ?? null,
+              deviceStatus: connected ? "online" : "offline"
+            }
+          },
+          { merge: true }
+        );
+
+      } catch (err) {
+        console.error("Heartbeat persistence error:", err);
+      }
 
       return { ok: true };
     }
@@ -25,7 +57,6 @@ function registerHeartbeatRoutes(server) {
     handler: () => {
 
       const now = Date.now();
-
       const status = [];
 
       for (const [patientId, data] of lastSeen.entries()) {
