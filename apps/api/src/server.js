@@ -89,17 +89,29 @@ const init = async () => {
         return h.response({ message: "Patient not found" }).code(404);
       }
 
-      // Persist only stable state changes for now
       if (type === "state_change") {
         if (!state || !timestamp) {
           return h
-            .response({ message: "state and timestamp are required for state_change" })
+            .response({
+              message: "state and timestamp are required for state_change",
+            })
+            .code(400);
+        }
+
+        const stateStartedAt = timestamp;
+        const stateStartedAtMs = Date.parse(timestamp);
+
+        if (Number.isNaN(stateStartedAtMs)) {
+          return h
+            .response({ message: "timestamp must be a valid ISO date string" })
             .code(400);
         }
 
         await patientRef.collection("sensorEvents").add({
-          type,
+          type: "state_change",
           state,
+          stateStartedAt,
+          stateStartedAtMs,
           timestamp,
           gmag: typeof gmag === "number" ? gmag : null,
           createdAt: new Date().toISOString(),
@@ -109,8 +121,8 @@ const init = async () => {
           {
             sensor: {
               currentState: state,
-              lastChangedAt: timestamp,
-              lastSeenAt: timestamp,
+              lastChangedAt: stateStartedAt,
+              lastSeenAt: stateStartedAt,
               lastGmag: typeof gmag === "number" ? gmag : null,
             },
           },
