@@ -12,15 +12,24 @@ export default function PatientListPage() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetchPatients()
-      .then((data) => {
+    const loadPatients = async () => {
+      try {
+        const data = await fetchPatients();
         setPatients(data);
         setLastUpdated(new Date().toLocaleString());
         setError(null);
-      })
-      .catch((e: unknown) => {
+      } catch (e: unknown) {
         setError(e instanceof Error ? e.message : String(e));
-      });
+      }
+    };
+
+    loadPatients(); // initial load
+
+    const interval = setInterval(() => {
+      loadPatients();
+    }, 5000); // poll every 5 seconds
+
+    return () => clearInterval(interval);
   }, []);
 
   const handleOpenDashboard = (id: string) => {

@@ -133,6 +133,41 @@ button {
   color: #555;
 }
 
+/* ✅ SENSOR STATUS (FIXED POSITION) */
+.patient-card__status {
+  display: inline-block;
+  margin-top: 16px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  border: 1px solid #e6e8eb;
+}
+
+.patient-card__status--moving {
+  background: #ecfdf3;
+  color: #067647;
+  border-color: #abefc6;
+}
+
+.patient-card__status--rest {
+  background: #fff7ed;
+  color: #9a3412;
+  border-color: #fed7aa;
+}
+
+.patient-card__status--offline {
+  background: #fff1f2;
+  color: #b42318;
+  border-color: #fda4af;
+}
+
+.patient-card__status--unknown {
+  background: #f3f4f6;
+  color: #555;
+  border-color: #d1d5db;
+}
+
 .patient-card__hint {
   margin-top: 24px;
   font-size: 13px;
@@ -182,25 +217,6 @@ button {
   color: #666;
 }
 
-@media (max-width: 640px) {
-  .app-header__inner,
-  .app-footer__inner {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .app-main {
-    padding: 32px 16px;
-  }
-
-  .patient-grid {
-    grid-template-columns: 1fr;
-    gap: 20px;
-  }
-
-  .patient-card {
-    padding: 22px;
-  }
 .dashboard-panel {
   max-width: 1000px;
   margin: 0 auto;
@@ -223,6 +239,7 @@ button {
   color: #555;
   line-height: 1.6;
 }
+
 .dashboard-layout {
   max-width: 1200px;
   margin: 0 auto;
@@ -235,4 +252,24 @@ button {
   grid-column: span 2;
 }
 
+/* MOBILE */
+@media (max-width: 640px) {
+  .app-header__inner,
+  .app-footer__inner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .app-main {
+    padding: 32px 16px;
+  }
+
+  .patient-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .patient-card {
+    padding: 22px;
+  }
 }

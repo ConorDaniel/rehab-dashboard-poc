@@ -3,6 +3,7 @@ require("dotenv").config();
 const Hapi = require("@hapi/hapi");
 const { db } = require("./firestore");
 const { registerHeartbeatRoutes } = require("./systemcheck/heartbeat");
+const { startPiPing } = require("./systemcheck/piPing");
 
 const init = async () => {
   const server = Hapi.server({
@@ -132,7 +133,6 @@ const init = async () => {
         return h.response({ ok: true, persisted: "state_change" }).code(201);
       }
 
-      // Accept samples but do not persist them yet
       if (type === "sample") {
         return { ok: true, persisted: false, ignoredType: "sample" };
       }
@@ -145,6 +145,8 @@ const init = async () => {
 
   await server.start();
   console.log("API running on", server.info.uri);
+
+  startPiPing();
 };
 
 init().catch((err) => {
