@@ -11,7 +11,7 @@ from device_model import DeviceModel
 
 TARGET_MAC = "E1:B7:EA:2D:8A:AE"          # Sensor MAC
 PATIENT_ID = "p1"
-API_URL = "http://192.168.1.7:4000/telemetry"
+API_URL = "http://192.168.1.54:4000/telemetry"
 
 PRINT_RATE_HZ = 4                         # Console + processing rate
 MOVEMENT_THRESHOLD = 8                    # Gyro magnitude threshold
@@ -36,6 +36,10 @@ _stable_state = None                      # debounced state
 _stable_state_since = 0.0                 # when debounced state took effect
 
 _rest_silenced = False
+
+
+def utc_now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 
 def post(payload: dict) -> None:
@@ -104,8 +108,7 @@ def handle_data(device):
             "patientId": PATIENT_ID,
             "state": _stable_state,
             "gmag": gmag,
-            "timestamp": int(now * 1000),
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": utc_now_iso(),
         })
         return
 
@@ -120,7 +123,7 @@ def handle_data(device):
             "patientId": PATIENT_ID,
             "state": _stable_state,
             "gmag": gmag,
-            "timestamp": int(now * 1000),
+            "timestamp": utc_now_iso(),
         })
 
     # Decide whether to send samples
@@ -137,9 +140,9 @@ def handle_data(device):
         post({
             "type": "sample",
             "patientId": PATIENT_ID,
-            "state": _stable_state,     # debounced state
+            "state": _stable_state,
             "gmag": gmag,
-            "timestamp": int(now * 1000),
+            "timestamp": utc_now_iso(),
         })
 
 
