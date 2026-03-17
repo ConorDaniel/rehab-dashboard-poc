@@ -5,6 +5,25 @@ const { db } = require("./firestore");
 const { registerHeartbeatRoutes } = require("./systemcheck/heartbeat");
 const { startPiPing } = require("./systemcheck/piPing");
 
+const { getPatientFitbitConfig } = require("./services/fitbit/fitbit-config-store");
+const {
+  getStepsIntradayToday,
+  getHeartRateIntradayToday,
+} = require("./services/fitbit/fitbit-client");
+const { refreshAccessToken } = require("./services/fitbit/fitbit-auth");
+
+function sumSteps(stepDataset) {
+  return (stepDataset || []).reduce((sum, item) => {
+    return sum + (Number(item.value) || 0);
+  }, 0);
+}
+
+function latestHeartRate(hrDataset) {
+  if (!hrDataset || hrDataset.length === 0) return null;
+  const last = hrDataset[hrDataset.length - 1];
+  return Number(last.value) || null;
+}
+
 const init = async () => {
   const server = Hapi.server({
     port: process.env.PORT || 4000,
@@ -27,10 +46,26 @@ const init = async () => {
     path: "/patients",
     handler: async () => {
       const snapshot = await db().collection("patients").get();
-      return snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
+      return snapshot.docs.map((doc) => {
+        const data = doc.data();
+
+        // do not expose tokens
+        const safeFitbit = data.fitbit
+          ? {
+              connected: data.fitbit.connected ?? false,
+              fitbitUserId: data.fitbit.fitbitUserId ?? null,
+              expiresAt: data.fitbit.expiresAt ?? null,
+              lastSyncAt: data.fitbit.lastSyncAt ?? null,
+              lastRefreshAt: data.fitbit.lastRefreshAt ?? null,
+            }
+          : null;
+
+        return {
+          id: doc.id,
+          ...data,
+          fitbit: safeFitbit,
+        };
+      });
     },
   });
 
@@ -58,6 +93,123 @@ const init = async () => {
         metrics: patient.dashboard?.metrics ?? [],
         sensor: patient.sensor ?? null,
       };
+    },
+  });
+
+  server.route({
+    method: "GET",
+    path: "/patients/{id}/fitbit/test-steps",
+    handler: async (request, h) => {
+      const { id } = request.params;
+
+      try {
+        const fitbitConfig = await getPatientFitbitConfig(id);
+
+        if (!fitbitConfig || !fitbitConfig.connected) {
+          return h
+            .response({ message: "Fitbit not configured for this patient" })
+            .code(404);
+        }
+
+        const accessToken = await refreshAccessToken(
+          id,
+          fitbitConfig.refreshToken
+        );
+
+        const data = await getStepsIntradayToday(accessToken);
+        const stepsData = data["activities-steps-intraday"]?.dataset || [];
+
+        return {
+          patientId: id,
+          points: stepsData.length,
+          sample: stepsData.slice(0, 5),
+        };
+      } catch (error) {
+        console.error("Fitbit test error:", error.message);
+        return h.response({ error: error.message }).code(500);
+      }
+    },
+  });
+
+  server.route({
+    method: "POST",
+    path: "/patients/{id}/fitbit/sync",
+    handler: async (request, h) => {
+      const { id } = request.params;
+
+      try {
+        const patientRef = db().collection("patients").doc(id);
+        const patientSnap = await patientRef.get();
+
+        if (!patientSnap.exists) {
+          return h.response({ message: "Patient not found" }).code(404);
+        }
+
+        const fitbitConfig = await getPatientFitbitConfig(id);
+
+        if (!fitbitConfig || !fitbitConfig.connected) {
+          return h
+            .response({ message: "Fitbit not configured for this patient" })
+            .code(404);
+        }
+
+        const accessToken = await refreshAccessToken(
+          id,
+          fitbitConfig.refreshToken
+        );
+
+        const today = new Date().toISOString().slice(0, 10);
+
+        const stepsResponse = await getStepsIntradayToday(accessToken);
+        const stepDataset =
+          stepsResponse["activities-steps-intraday"]?.dataset || [];
+        const totalSteps = sumSteps(stepDataset);
+
+        let currentHeartRate = null;
+        let heartDataset = [];
+        let heartError = null;
+
+        try {
+          const heartResponse = await getHeartRateIntradayToday(accessToken);
+          heartDataset =
+            heartResponse["activities-heart-intraday"]?.dataset || [];
+          currentHeartRate = latestHeartRate(heartDataset);
+        } catch (err) {
+          heartError = err.message;
+          console.error("Heart rate fetch failed:", err.message);
+        }
+
+        const metric = {
+          date: today,
+          steps: totalSteps,
+          heartRate: currentHeartRate,
+        };
+
+        await patientRef.set(
+          {
+            dashboard: {
+              lastUpdated: new Date().toISOString(),
+              metrics: [metric],
+            },
+            fitbit: {
+              lastSyncAt: new Date().toISOString(),
+            },
+          },
+          { merge: true }
+        );
+
+        return {
+          ok: true,
+          patientId: id,
+          written: metric,
+          stepPoints: stepDataset.length,
+          heartPoints: heartDataset.length,
+          heartError,
+        };
+      } catch (error) {
+        console.error("Fitbit sync error:", error.message);
+        return h.response({ error: error.message }).code(500);
+      }
     },
   });
 
