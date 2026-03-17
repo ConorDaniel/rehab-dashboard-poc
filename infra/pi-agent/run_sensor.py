@@ -9,16 +9,16 @@ from device_model import DeviceModel
 # CONFIGURATION
 # =========================
 
-TARGET_MAC = "E1:B7:EA:2D:8A:AE"          # Sensor MAC
+TARGET_MAC = "E1:B7:EA:2D:8A:AE"
 PATIENT_ID = "p1"
-API_URL = "http://192.168.1.54:4000/telemetry"
+API_URL = "http://192.168.1.57:4000/telemetry"
 
-PRINT_RATE_HZ = 4                         # Console + processing rate
-MOVEMENT_THRESHOLD = 8                    # Gyro magnitude threshold
+PRINT_RATE_HZ = 4
+MOVEMENT_THRESHOLD = 8
 
 # Debounce / persistence rules
-STATE_CHANGE_PERSIST_SECONDS = 3          # only report a new state if it lasts >= 3s
-REST_SILENCE_AFTER_SECONDS = 10           # after being REST for >= 10s, stop sending samples
+STATE_CHANGE_PERSIST_SECONDS = 3
+REST_SILENCE_AFTER_SECONDS = 10
 
 # Heartbeat helper file (read by heartbeat.py)
 LAST_SEEN_FILE = "/tmp/p1_last_seen"
@@ -29,11 +29,11 @@ _last_tick = 0.0
 _last_seen_write = 0.0
 
 # State tracking
-_raw_state = None                         # instantaneous from threshold
-_raw_state_since = 0.0                    # when instantaneous state last changed
+_raw_state = None
+_raw_state_since = 0.0
 
-_stable_state = None                      # debounced state
-_stable_state_since = 0.0                 # when debounced state took effect
+_stable_state = None
+_stable_state_since = 0.0
 
 _rest_silenced = False
 
@@ -82,13 +82,11 @@ def handle_data(device):
     gmag = math.sqrt(gx * gx + gy * gy + gz * gz)
     instant_state = "MOVING" if gmag > MOVEMENT_THRESHOLD else "REST"
 
-    # Console output
     print(
         f"Gx:{gx:7.2f}  Gy:{gy:7.2f}  Gz:{gz:7.2f}  |  "
         f"Gmag:{gmag:7.2f}  {instant_state}"
     )
 
-    # Track instantaneous state changes
     if _raw_state is None:
         _raw_state = instant_state
         _raw_state_since = now
@@ -97,7 +95,6 @@ def handle_data(device):
         _raw_state = instant_state
         _raw_state_since = now
 
-    # Promote to "stable" only if it persists long enough
     if _stable_state is None:
         _stable_state = _raw_state
         _stable_state_since = now
@@ -112,11 +109,10 @@ def handle_data(device):
         })
         return
 
-    # If stable differs from raw and raw has persisted >= debounce window, switch
     if _raw_state != _stable_state and (now - _raw_state_since) >= STATE_CHANGE_PERSIST_SECONDS:
         _stable_state = _raw_state
         _stable_state_since = now
-        _rest_silenced = False  # any state change re-enables sending
+        _rest_silenced = False
 
         post({
             "type": "state_change",
@@ -126,9 +122,7 @@ def handle_data(device):
             "timestamp": utc_now_iso(),
         })
 
-    # Decide whether to send samples
     if _stable_state == "REST":
-        # If REST has persisted long enough, silence sample sending
         if (now - _stable_state_since) >= REST_SILENCE_AFTER_SECONDS:
             _rest_silenced = True
 
@@ -147,8 +141,15 @@ def handle_data(device):
 
 
 async def main():
-    dm = DeviceModel("WitSensor", TARGET_MAC, handle_data)
-    await dm.openDevice()
+    while True:
+        try:
+            print("Attempting to connect to BLE sensor...")
+            dm = DeviceModel("WitSensor", TARGET_MAC, handle_data)
+            await dm.openDevice()
+        except Exception as e:
+            print("BLE connection failed:", e)
+            print("Retrying in 5 seconds...\n")
+            await asyncio.sleep(5)
 
 
 if __name__ == "__main__":
