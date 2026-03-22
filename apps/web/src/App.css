@@ -98,9 +98,10 @@ button {
 
 .patient-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(360px, 420px));
-  justify-content: center;
+  grid-template-columns: repeat(2, 1fr);
   gap: 32px;
+  max-width: 1000px;
+  margin: 0 auto;
 }
 
 .patient-card {

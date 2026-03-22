@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { fetchPatientDashboard } from "../services/patientService";
+import {
+  fetchPatientDashboard,
+  fetchPatientTrends,
+} from "../services/patientService";
 import type { PatientDashboard } from "../types/patientDashboard";
 import {
   BarChart,
@@ -17,6 +20,7 @@ export default function PatientDashboardPage() {
   const navigate = useNavigate();
 
   const [dashboard, setDashboard] = useState<PatientDashboard | null>(null);
+  const [days, setDays] = useState(7);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -31,6 +35,22 @@ export default function PatientDashboardPage() {
         setError(e instanceof Error ? e.message : String(e));
       });
   }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+
+    fetchPatientTrends(id, days)
+      .then((data) => {
+        setDashboard((prev) =>
+          prev
+            ? { ...prev, metrics: data.metrics }
+            : null
+        );
+      })
+      .catch((e: unknown) => {
+        setError(e instanceof Error ? e.message : String(e));
+      });
+  }, [id, days]);
 
   return (
     <div className="app-shell">
@@ -72,35 +92,55 @@ export default function PatientDashboardPage() {
                   ? new Date(dashboard.lastUpdated).toLocaleString()
                   : "Not available"}
               </p>
+              <p className="dashboard-panel__text">
+                Sensor state: {dashboard.sensor?.currentState ?? "Unknown"}
+              </p>
+              <p className="dashboard-panel__text">
+                Pi status: {dashboard.sensor?.deviceStatus ?? "Unknown"}
+              </p>
             </section>
 
             <section className="dashboard-panel">
-              <h2 className="dashboard-panel__title">Steps — Last 7 Days</h2>
+              <div style={{ display: "flex", gap: "8px", marginBottom: "12px" }}>
+                {[7, 14, 21, 30].map((value) => (
+                  <button
+                    key={value}
+                    type="button"
+                    className="patient-card__button"
+                    onClick={() => setDays(value)}
+                  >
+                    Last {value} days
+                  </button>
+                ))}
+              </div>
+
+              <h2 className="dashboard-panel__title">Steps Trend</h2>
 
               <div style={{ width: "100%", height: 260 }}>
-              <ResponsiveContainer>
-              <BarChart data={dashboard.metrics}>
-              <CartesianGrid strokeDasharray="3 3" />
-
-              <XAxis dataKey="date" />
-
-              <YAxis />
-
-              <Tooltip />
-
-              <Bar dataKey="steps" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-              </BarChart>
-              </ResponsiveContainer>
+                <ResponsiveContainer>
+                  <BarChart data={dashboard.metrics}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis />
+                    <Tooltip />
+                    <Bar dataKey="steps" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
             </section>
 
             <section className="dashboard-panel">
-              <h2 className="dashboard-panel__title">Heart Rate — Last 7 Days</h2>
+              <h2 className="dashboard-panel__title">Activity Summary</h2>
               <div className="metric-list">
                 {dashboard.metrics.map((day) => (
                   <div key={day.date} className="metric-row">
                     <span>{day.date}</span>
-                    <strong>{day.heartRate} bpm</strong>
+                    <strong>
+                      Steps {day.steps} • Sed {day.sedentaryMinutes ?? 0} • Light{" "}
+                      {day.lightlyActiveMinutes ?? 0} • Fair{" "}
+                      {day.fairlyActiveMinutes ?? 0} • Very{" "}
+                      {day.veryActiveMinutes ?? 0}
+                    </strong>
                   </div>
                 ))}
               </div>

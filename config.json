@@ -1,5 +1,5 @@
 {
-  "apiBaseUrl": "http://192.168.1.54:4000",
+  "apiBaseUrl": "http://192.168.1.57:4000",
   "piToken": "Thisisarandomphrasetoconnectthepitothemac",
   "sensors": [
     { "patientId": "p1", "mac": "C7:BC:52:0B:E1:7F" },

@@ -3,7 +3,7 @@ import requests
 from datetime import datetime, timezone
 
 PATIENT_ID = "p1"
-API_URL = "http://192.168.1.54:4000/heartbeat"
+API_URL = "http://192.168.1.57:4000/heartbeat"
 
 HEARTBEAT_INTERVAL = 60
 DISCONNECT_THRESHOLD = 10
