@@ -42,15 +42,44 @@ export default function PatientDashboardPage() {
     fetchPatientTrends(id, days)
       .then((data) => {
         setDashboard((prev) =>
-          prev
-            ? { ...prev, metrics: data.metrics }
-            : null
+          prev ? { ...prev, metrics: data.metrics } : null
         );
       })
       .catch((e: unknown) => {
         setError(e instanceof Error ? e.message : String(e));
       });
   }, [id, days]);
+
+  const latestDay =
+    dashboard?.metrics && dashboard.metrics.length > 0
+      ? dashboard.metrics[dashboard.metrics.length - 1]
+      : null;
+
+  const activityRows = latestDay
+    ? [
+        {
+          label: "Sedentary activity",
+          value: latestDay.sedentaryMinutes ?? 0,
+        },
+        {
+          label: "Light activity",
+          value: latestDay.lightlyActiveMinutes ?? 0,
+        },
+        {
+          label: "Moderate activity",
+          value: latestDay.fairlyActiveMinutes ?? 0,
+        },
+        {
+          label: "High activity",
+          value: latestDay.veryActiveMinutes ?? 0,
+        },
+      ]
+    : [];
+
+  const maxActivityValue =
+    activityRows.length > 0
+      ? Math.max(...activityRows.map((row) => row.value), 1)
+      : 1;
 
   return (
     <div className="app-shell">
@@ -92,12 +121,6 @@ export default function PatientDashboardPage() {
                   ? new Date(dashboard.lastUpdated).toLocaleString()
                   : "Not available"}
               </p>
-              <p className="dashboard-panel__text">
-                Sensor state: {dashboard.sensor?.currentState ?? "Unknown"}
-              </p>
-              <p className="dashboard-panel__text">
-                Pi status: {dashboard.sensor?.deviceStatus ?? "Unknown"}
-              </p>
             </section>
 
             <section className="dashboard-panel">
@@ -130,20 +153,56 @@ export default function PatientDashboardPage() {
             </section>
 
             <section className="dashboard-panel">
-              <h2 className="dashboard-panel__title">Activity Summary</h2>
-              <div className="metric-list">
-                {dashboard.metrics.map((day) => (
-                  <div key={day.date} className="metric-row">
-                    <span>{day.date}</span>
-                    <strong>
-                      Steps {day.steps} • Sed {day.sedentaryMinutes ?? 0} • Light{" "}
-                      {day.lightlyActiveMinutes ?? 0} • Fair{" "}
-                      {day.fairlyActiveMinutes ?? 0} • Very{" "}
-                      {day.veryActiveMinutes ?? 0}
-                    </strong>
-                  </div>
-                ))}
-              </div>
+              <h2 className="dashboard-panel__title">Today’s Activity</h2>
+
+              {!latestDay && (
+                <p className="dashboard-panel__text">No activity data available.</p>
+              )}
+
+              {latestDay && (
+                <div style={{ display: "grid", gap: "16px" }}>
+                  {activityRows.map((row) => {
+                    const widthPercent = (row.value / maxActivityValue) * 100;
+
+                    return (
+                      <div key={row.label}>
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            marginBottom: 6,
+                            fontSize: 14,
+                            fontWeight: 600,
+                            color: "#374151",
+                          }}
+                        >
+                          <span>{row.label}</span>
+                          <span>{row.value} mins</span>
+                        </div>
+
+                        <div
+                          style={{
+                            width: "100%",
+                            height: 14,
+                            background: "#e5e7eb",
+                            borderRadius: 999,
+                            overflow: "hidden",
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: `${widthPercent}%`,
+                              height: "100%",
+                              background: "#3b82f6",
+                              borderRadius: 999,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </section>
           </div>
         )}
