@@ -49,12 +49,31 @@ function StatusDot({ connected }: { connected: boolean }) {
         width: 10,
         height: 10,
         borderRadius: "50%",
-        backgroundColor: connected ? "green" : "red",
-        marginLeft: 6,
+        backgroundColor: connected ? "#16a34a" : "#dc2626",
+        marginLeft: 8,
         verticalAlign: "middle",
       }}
     />
   );
+}
+
+function formatActivityDate(date?: string): string {
+  if (!date) return "No date";
+
+  const parsed = new Date(`${date}T12:00:00`);
+  if (Number.isNaN(parsed.getTime())) return date;
+
+  return parsed.toLocaleDateString("en-IE", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function getCardBackground(sensorConnected: boolean, piConnected: boolean): string {
+  if (sensorConnected && piConnected) return "#dcfce7";
+  if (sensorConnected || piConnected) return "#fef3c7";
+  return "#fee2e2";
 }
 
 export default function PatientCard({
@@ -64,75 +83,133 @@ export default function PatientCard({
   const today = patient.todayMetrics;
 
   const piConnected = patient.sensor?.deviceStatus === "online";
-  const sensorConnected = !!patient.sensor;
+  const sensorConnected = patient.sensor?.connected ?? false;
   const displayHeartRate =
     today?.heartRate ?? today?.restingHeartRate ?? null;
 
+  const cardBackground = getCardBackground(sensorConnected, piConnected);
+
   return (
-    <div className="patient-card">
+    <div
+      className="patient-card"
+      style={{
+        background: cardBackground,
+        transition: "transform 0.2s ease, box-shadow 0.2s ease",
+      }}
+    >
+      <div
+  className="patient-card__name"
+  style={{
+    textAlign: "center",
+    marginBottom: 6,
+  }}
+>
+  {patient.name}
+</div>
+
+<div
+  style={{
+    textAlign: "center",
+    marginBottom: 14,
+    fontSize: 14,
+    color: "#374151",
+    fontWeight: 500,
+  }}
+>
+  Room {patient.room} · {patient.bed}
+</div>
+
+<div
+  style={{
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: 16,
+    marginBottom: 14,
+  }}
+>
+  <div style={{ flex: 1 }}>
+          <div className={getSensorClass(patient)} style={{ marginBottom: 12 }}>
+            {getSensorLabel(patient)}
+          </div>
+
+          <div className="patient-card__meta" style={{ marginBottom: 8 }}>
+            Sensor connected
+            <StatusDot connected={sensorConnected} />
+          </div>
+
+          <div className="patient-card__meta">
+            Pi connected
+            <StatusDot connected={piConnected} />
+          </div>
+
+          <div className="patient-card__meta" style={{ marginTop: 12 }}>
+            Room {patient.room}
+          </div>
+
+          <div className="patient-card__meta">{patient.bed}</div>
+        </div>
+
+        <div
+          style={{
+            width: 92,
+            height: 112,
+            borderRadius: 12,
+            background: "#e5e7eb",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 13,
+            color: "#6b7280",
+            fontWeight: 600,
+            flexShrink: 0,
+          }}
+        >
+          Headshot
+        </div>
+      </div>
+
       <div
         style={{
-          width: "100%",
-          height: 120,
-          borderRadius: 12,
-          background: "#e5e7eb",
+          textAlign: "center",
+          fontWeight: 700,
+          fontSize: 15,
+          marginTop: 10,
+          marginBottom: 10,
+        }}
+      >
+        Activity Today · {formatActivityDate(today?.date)}
+      </div>
+
+      <div
+        className="patient-card__meta"
+        style={{
           display: "flex",
           alignItems: "center",
-          justifyContent: "center",
-          marginBottom: 12,
-          fontSize: 14,
-          color: "#6b7280",
+          gap: 8,
+          marginBottom: 8,
           fontWeight: 600,
         }}
       >
-        Patient photo
+        <span aria-hidden="true" style={{ fontSize: 18 }}>👣</span>
+        <span>Steps: {today?.steps ?? 0}</span>
       </div>
 
-      <div className="patient-card__name">{patient.name}</div>
-      <div className="patient-card__meta">Room {patient.room}</div>
-      <div className="patient-card__meta">{patient.bed}</div>
-
-      <div className={getSensorClass(patient)}>
-        {getSensorLabel(patient)}
-      </div>
-
-      <div className="patient-card__meta" style={{ marginTop: 10 }}>
-        Sensor connected:
-        <StatusDot connected={sensorConnected} />
-      </div>
-
-      <div className="patient-card__meta">
-        Pi connected:
-        <StatusDot connected={piConnected} />
-      </div>
-
-      <div className="patient-card__meta" style={{ marginTop: 12 }}>
-        Today’s Activity
-      </div>
-
-      <div className="patient-card__meta">
-        Steps: {today?.steps ?? 0}
-      </div>
-
-      <div className="patient-card__meta">
-        ♥ Heart rate: {displayHeartRate ?? "—"}
-        {displayHeartRate ? " bpm" : ""}
-      </div>
-
-      <div className="patient-card__meta">
-        Sedentary activity mins: {today?.sedentaryMinutes ?? 0}
-      </div>
-
-      <div className="patient-card__meta">
-        Light activity mins: {today?.lightlyActiveMinutes ?? 0}
-      </div>
-
-      <div className="patient-card__meta">
-        Moderate activity mins: {today?.fairlyActiveMinutes ?? 0}
-      </div>
-
-      <div className="patient-card__meta">
-        High activity mins: {today?.veryActiveMinutes ?? 0}
+      <div
+        className="patient-card__meta"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          marginBottom: 12,
+          fontWeight: 600,
+        }}
+      >
+        <span aria-hidden="true" style={{ fontSize: 18, color: "#dc2626" }}>♥</span>
+        <span>
+          Heart rate: {displayHeartRate ?? "—"}
+          {displayHeartRate ? " bpm" : ""}
+        </span>
       </div>
 
       <div className="patient-card__hint">
