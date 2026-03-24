@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   fetchPatientDashboard,
   fetchPatientTrends,
+  fetchSensorSummary,
 } from "../services/patientService";
-import type { PatientDashboard } from "../types/patientDashboard";
+import type { PatientDashboard, SensorSummary } from "../types/patientDashboard";
 import {
   BarChart,
   Bar,
@@ -15,13 +16,116 @@ import {
   CartesianGrid,
 } from "recharts";
 
+function MovementDonut({
+  movingPercent,
+  atRestPercent,
+}: {
+  movingPercent: number;
+  atRestPercent: number;
+}) {
+  const size = 260;
+  const stroke = 30;
+  const radius = (size - stroke) / 2;
+  const circumference = 2 * Math.PI * radius;
+
+  const clampedMoving = Math.max(0, Math.min(100, movingPercent));
+  const movingLength = (clampedMoving / 100) * circumference;
+  const movingOffset = circumference - movingLength;
+
+  return (
+    <div
+      style={{
+        width: "100%",
+        display: "flex",
+        justifyContent: "center",
+      }}
+    >
+      <div
+        style={{
+          width: "100%",
+          maxWidth: 620,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+        }}
+      >
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+          <g transform={`rotate(-90 ${size / 2} ${size / 2})`}>
+            {/* Base ring = At Rest */}
+            <circle
+              cx={size / 2}
+              cy={size / 2}
+              r={radius}
+              fill="none"
+              stroke="#22c55e"
+              strokeWidth={stroke}
+            />
+            {/* Overlay arc = Moving */}
+            <circle
+              cx={size / 2}
+              cy={size / 2}
+              r={radius}
+              fill="none"
+              stroke="#f97316"
+              strokeWidth={stroke}
+              strokeDasharray={`${movingLength} ${circumference}`}
+              strokeDashoffset={0}
+              strokeLinecap="butt"
+            />
+          </g>
+
+          <text
+            x="50%"
+            y="46%"
+            textAnchor="middle"
+            fontSize="18"
+            fontWeight="700"
+            fill="#111827"
+          >
+            24 Hours
+          </text>
+          <text
+            x="50%"
+            y="56%"
+            textAnchor="middle"
+            fontSize="14"
+            fill="#6b7280"
+          >
+            Movement
+          </text>
+        </svg>
+
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            gap: 30,
+            marginTop: 10,
+            flexWrap: "wrap",
+            fontWeight: 600,
+          }}
+        >
+          <span style={{ color: "#22c55e" }}>
+            ● At Rest: {atRestPercent}%
+          </span>
+          <span style={{ color: "#f97316" }}>
+            ● Moving: {movingPercent}%
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function PatientDashboardPage() {
   const { id } = useParams();
   const navigate = useNavigate();
 
   const [dashboard, setDashboard] = useState<PatientDashboard | null>(null);
+  const [sensorSummary, setSensorSummary] = useState<SensorSummary | null>(null);
   const [days, setDays] = useState(7);
   const [error, setError] = useState<string | null>(null);
+  const [sensorError, setSensorError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -50,6 +154,19 @@ export default function PatientDashboardPage() {
       });
   }, [id, days]);
 
+  useEffect(() => {
+    if (!id) return;
+
+    fetchSensorSummary(id, 24)
+      .then((data) => {
+        setSensorSummary(data);
+        setSensorError(null);
+      })
+      .catch((e: unknown) => {
+        setSensorError(e instanceof Error ? e.message : String(e));
+      });
+  }, [id]);
+
   const latestDay =
     dashboard?.metrics && dashboard.metrics.length > 0
       ? dashboard.metrics[dashboard.metrics.length - 1]
@@ -57,22 +174,10 @@ export default function PatientDashboardPage() {
 
   const activityRows = latestDay
     ? [
-        {
-          label: "Sedentary activity",
-          value: latestDay.sedentaryMinutes ?? 0,
-        },
-        {
-          label: "Light activity",
-          value: latestDay.lightlyActiveMinutes ?? 0,
-        },
-        {
-          label: "Moderate activity",
-          value: latestDay.fairlyActiveMinutes ?? 0,
-        },
-        {
-          label: "High activity",
-          value: latestDay.veryActiveMinutes ?? 0,
-        },
+        { label: "Sedentary activity", value: latestDay.sedentaryMinutes ?? 0 },
+        { label: "Light activity", value: latestDay.lightlyActiveMinutes ?? 0 },
+        { label: "Moderate activity", value: latestDay.fairlyActiveMinutes ?? 0 },
+        { label: "High activity", value: latestDay.veryActiveMinutes ?? 0 },
       ]
     : [];
 
@@ -80,6 +185,21 @@ export default function PatientDashboardPage() {
     activityRows.length > 0
       ? Math.max(...activityRows.map((row) => row.value), 1)
       : 1;
+
+  const movementMinutesData = sensorSummary
+    ? [
+        { name: "Moving", minutes: sensorSummary.minutes.moving },
+        { name: "At Rest", minutes: sensorSummary.minutes.atRest },
+        { name: "No Signal", minutes: sensorSummary.minutes.noSignal },
+      ]
+    : [];
+
+  const donutValues = useMemo(() => {
+    return {
+      moving: sensorSummary?.percentages.moving ?? 0,
+      atRest: sensorSummary?.percentages.atRest ?? 0,
+    };
+  }, [sensorSummary]);
 
   return (
     <div className="app-shell">
@@ -150,6 +270,59 @@ export default function PatientDashboardPage() {
                   </BarChart>
                 </ResponsiveContainer>
               </div>
+            </section>
+
+            <section className="dashboard-panel">
+              <h2 className="dashboard-panel__title">
+                Movement over last 24 Hours
+              </h2>
+
+              {sensorError && (
+                <p className="dashboard-panel__text">Error: {sensorError}</p>
+              )}
+
+              {!sensorSummary && !sensorError && (
+                <p className="dashboard-panel__text">
+                  Loading movement summary...
+                </p>
+              )}
+
+              {sensorSummary && (
+                <MovementDonut
+                  movingPercent={donutValues.moving}
+                  atRestPercent={donutValues.atRest}
+                />
+              )}
+            </section>
+
+            <section className="dashboard-panel">
+              <h2 className="dashboard-panel__title">
+                Movement Minutes over last 24 Hours
+              </h2>
+
+              {sensorError && (
+                <p className="dashboard-panel__text">Error: {sensorError}</p>
+              )}
+
+              {!sensorSummary && !sensorError && (
+                <p className="dashboard-panel__text">
+                  Loading movement minutes...
+                </p>
+              )}
+
+              {sensorSummary && (
+                <div style={{ width: "100%", height: 280 }}>
+                  <ResponsiveContainer>
+                    <BarChart data={movementMinutesData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <Tooltip formatter={(value: number) => `${value} mins`} />
+                      <Bar dataKey="minutes" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
             </section>
 
             <section className="dashboard-panel">

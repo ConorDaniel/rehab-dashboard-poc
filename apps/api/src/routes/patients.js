@@ -1,4 +1,5 @@
 const { db } = require("../firestore");
+const { getSensorSummary } = require("../services/sensor/sensor-summary");
 
 function registerPatientRoutes(server) {
   server.route({
@@ -55,6 +56,30 @@ function registerPatientRoutes(server) {
       );
 
       return patients;
+    },
+  });
+
+    server.route({
+    method: "GET",
+    path: "/patients/{id}/sensor-summary",
+    handler: async (request, h) => {
+      const { id } = request.params;
+      const hours = Number(request.query.hours || 24);
+
+      const patientRef = db().collection("patients").doc(id);
+      const patientSnap = await patientRef.get();
+
+      if (!patientSnap.exists) {
+        return h.response({ message: "Patient not found" }).code(404);
+      }
+
+      try {
+        const summary = await getSensorSummary(id, hours);
+        return summary;
+      } catch (error) {
+        console.error("Sensor summary error:", error.message);
+        return h.response({ error: error.message }).code(500);
+      }
     },
   });
 

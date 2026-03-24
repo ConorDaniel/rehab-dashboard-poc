@@ -1,5 +1,5 @@
 import type { Patient } from "../types/patient";
-import type { PatientDashboard } from "../types/patientDashboard";
+import type { PatientDashboard, SensorSummary } from "../types/patientDashboard";
 
 export async function fetchPatientTrends(id: string, days: number) {
   const response = await fetch(`/patients/${id}/trends?days=${days}`);
@@ -20,6 +20,21 @@ export async function fetchPatients(): Promise<Patient[]> {
 
   const data = await res.json();
   return Array.isArray(data) ? data : [];
+}
+
+export async function fetchSensorSummary(
+  patientId: string,
+  hours = 24
+): Promise<SensorSummary> {
+  const response = await fetch(
+    `/patients/${patientId}/sensor-summary?hours=${hours}`
+  );
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+
+  return response.json();
 }
 
 export async function fetchPatientDashboard(

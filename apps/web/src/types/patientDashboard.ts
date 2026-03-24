@@ -26,3 +26,22 @@ export type PatientDashboard = {
   } | null;
   metrics: DailyMetric[];
 };
+
+export type SensorSummary = {
+  patientId: string;
+  hours: number;
+  windowStart: string;
+  windowEnd: string;
+  minutes: {
+    moving: number;
+    rest: number;
+    noSignal: number;
+    atRest: number;
+  };
+  percentages: {
+    moving: number;
+    rest: number;
+    noSignal: number;
+    atRest: number;
+  };
+};
