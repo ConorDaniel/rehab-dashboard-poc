@@ -1,4 +1,9 @@
 const { db } = require("../firestore");
+const {
+  shouldTriggerMovementAlert,
+  scheduleMovementAlert,
+  clearPendingAlert,
+} = require("../services/sensor/movement-alerts");
 
 function registerTelemetryRoutes(server) {
   server.route({
@@ -24,29 +29,9 @@ function registerTelemetryRoutes(server) {
             .code(400);
         }
 
-        const patientRef = db().collection("patients").doc(patientId);
-        const patientSnap = await patientRef.get();
-
-        if (!patientSnap.exists) {
-          return h.response({ message: "Patient not found" }).code(404);
-        }
-
-        // Ignore samples (as before)
-        if (type === "sample") {
-          return { ok: true, persisted: false, ignoredType: "sample" };
-        }
-
-        if (type !== "state_change") {
+        if (!timestamp) {
           return h
-            .response({ message: `Unsupported telemetry type: ${type}` })
-            .code(400);
-        }
-
-        if (!state || !timestamp) {
-          return h
-            .response({
-              message: "state and timestamp are required for state_change",
-            })
+            .response({ message: "timestamp is required" })
             .code(400);
         }
 
@@ -58,7 +43,65 @@ function registerTelemetryRoutes(server) {
             .code(400);
         }
 
+        const patientRef = db().collection("patients").doc(patientId);
+        const patientSnap = await patientRef.get();
+
+        if (!patientSnap.exists) {
+          return h.response({ message: "Patient not found" }).code(404);
+        }
+
         const nowIso = new Date().toISOString();
+
+        // Update telemetry freshness for ANY telemetry received
+        await db().collection("devices").doc(piId).set(
+          {
+            piId,
+            patientId,
+            lastTelemetryAt: timestamp,
+            updatedAt: nowIso,
+          },
+          { merge: true }
+        );
+
+        await patientRef.set(
+          {
+            sensor: {
+              lastSeenAt: timestamp,
+              lastGmag: typeof gmag === "number" ? gmag : null,
+            },
+          },
+          { merge: true }
+        );
+
+        // Ignore samples after refreshing telemetry freshness
+        if (type === "sample") {
+          return { ok: true, persisted: false, ignoredType: "sample" };
+        }
+
+        if (type !== "state_change") {
+          return h
+            .response({ message: `Unsupported telemetry type: ${type}` })
+            .code(400);
+        }
+
+        if (!state) {
+          return h
+            .response({
+              message: "state is required for state_change",
+            })
+            .code(400);
+        }
+
+        // Get previous event BEFORE writing the new one
+        const previousEventSnap = await patientRef
+          .collection("sensorEvents")
+          .orderBy("timestampMs", "desc")
+          .limit(1)
+          .get();
+
+        const previousEvent = previousEventSnap.empty
+          ? null
+          : previousEventSnap.docs[0].data();
 
         console.log(`Writing sensor event for ${patientId}: ${state}`);
 
@@ -74,7 +117,7 @@ function registerTelemetryRoutes(server) {
           createdAt: nowIso,
         });
 
-        // 2. Update patient summary (UI-friendly)
+        // 2. Update patient summary
         await patientRef.set(
           {
             sensor: {
@@ -87,16 +130,21 @@ function registerTelemetryRoutes(server) {
           { merge: true }
         );
 
-        // 3. Update device telemetry status
-        await db().collection("devices").doc(piId).set(
-          {
-            piId,
-            patientId,
-            lastTelemetryAt: timestamp,
-            updatedAt: nowIso,
-          },
-          { merge: true }
-        );
+        // 3. Alert logic for POC
+        if (state === "REST") {
+          clearPendingAlert(patientId);
+        }
+
+        if (shouldTriggerMovementAlert(previousEvent, state)) {
+          console.log(
+            `Alert rule met for ${patientId}: moving after rest; scheduling confirmation`
+          );
+          scheduleMovementAlert({ patientId, piId });
+        } else if (state === "MOVING") {
+          console.log(
+            `No alert scheduled for ${patientId}: previous state was not long enough REST`
+          );
+        }
 
         console.log(`Firestore updated for ${patientId} via ${piId}: ${state}`);
 
