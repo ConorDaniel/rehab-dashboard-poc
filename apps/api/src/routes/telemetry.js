@@ -16,11 +16,11 @@ function registerTelemetryRoutes(server) {
         const payload = request.payload;
         console.log("Telemetry received:", payload);
 
-        const { type, patientId, state, timestamp, gmag } = payload;
+        const { type, piId, patientId, state, timestamp, gmag } = payload;
 
-        if (!type || !patientId) {
+        if (!type || !piId || !patientId) {
           return h
-            .response({ message: "type and patientId are required" })
+            .response({ message: "type, piId and patientId are required" })
             .code(400);
         }
 
@@ -31,6 +31,7 @@ function registerTelemetryRoutes(server) {
           return h.response({ message: "Patient not found" }).code(404);
         }
 
+        // Ignore samples (as before)
         if (type === "sample") {
           return { ok: true, persisted: false, ignoredType: "sample" };
         }
@@ -61,6 +62,7 @@ function registerTelemetryRoutes(server) {
 
         console.log(`Writing sensor event for ${patientId}: ${state}`);
 
+        // 1. Write event to patient history
         await patientRef.collection("sensorEvents").add({
           type: "state_change",
           state,
@@ -72,6 +74,7 @@ function registerTelemetryRoutes(server) {
           createdAt: nowIso,
         });
 
+        // 2. Update patient summary (UI-friendly)
         await patientRef.set(
           {
             sensor: {
@@ -84,7 +87,18 @@ function registerTelemetryRoutes(server) {
           { merge: true }
         );
 
-        console.log(`Firestore updated for ${patientId}: ${state}`);
+        // 3. Update device telemetry status
+        await db().collection("devices").doc(piId).set(
+          {
+            piId,
+            patientId,
+            lastTelemetryAt: timestamp,
+            updatedAt: nowIso,
+          },
+          { merge: true }
+        );
+
+        console.log(`Firestore updated for ${patientId} via ${piId}: ${state}`);
 
         return h.response({ ok: true, persisted: "state_change" }).code(201);
       } catch (error) {

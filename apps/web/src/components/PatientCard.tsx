@@ -8,10 +8,6 @@ type PatientCardProps = {
 function getSensorLabel(patient: Patient): string {
   if (!patient.sensor) return "No sensor data";
 
-  if (patient.sensor.deviceStatus === "offline") {
-    return "Sensor offline";
-  }
-
   if (patient.sensor.currentState === "REST") {
     return "At rest";
   }
@@ -25,10 +21,6 @@ function getSensorLabel(patient: Patient): string {
 
 function getSensorClass(patient: Patient): string {
   if (!patient.sensor) return "patient-card__status patient-card__status--unknown";
-
-  if (patient.sensor.deviceStatus === "offline") {
-    return "patient-card__status patient-card__status--offline";
-  }
 
   if (patient.sensor.currentState === "REST") {
     return "patient-card__status patient-card__status--rest";
@@ -76,16 +68,25 @@ function getCardBackground(sensorConnected: boolean, piConnected: boolean): stri
   return "#fee2e2";
 }
 
+function isRecentIsoTime(isoString?: string | null, maxAgeMs = 15000): boolean {
+  if (!isoString) return false;
+
+  const parsed = new Date(isoString).getTime();
+  if (Number.isNaN(parsed)) return false;
+
+  return Date.now() - parsed < maxAgeMs;
+}
+
 export default function PatientCard({
   patient,
   onOpenDashboard,
 }: PatientCardProps) {
   const today = patient.todayMetrics;
 
-  const piConnected = patient.sensor?.deviceStatus === "online";
-  const sensorConnected = patient.sensor?.connected ?? false;
-  const displayHeartRate =
-    today?.heartRate ?? today?.restingHeartRate ?? null;
+  const piConnected = patient.device?.deviceStatus === "online";
+  const sensorConnected = isRecentIsoTime(patient.device?.lastTelemetryAt, 15000);
+
+  const displayHeartRate = today?.heartRate ?? today?.restingHeartRate ?? null;
 
   const cardBackground = getCardBackground(sensorConnected, piConnected);
 
@@ -98,37 +99,37 @@ export default function PatientCard({
       }}
     >
       <div
-  className="patient-card__name"
-  style={{
-    textAlign: "center",
-    marginBottom: 6,
-  }}
->
-  {patient.name}
-</div>
+        className="patient-card__name"
+        style={{
+          textAlign: "center",
+          marginBottom: 6,
+        }}
+      >
+        {patient.name}
+      </div>
 
-<div
-  style={{
-    textAlign: "center",
-    marginBottom: 14,
-    fontSize: 14,
-    color: "#374151",
-    fontWeight: 500,
-  }}
->
-  Room {patient.room} · {patient.bed}
-</div>
+      <div
+        style={{
+          textAlign: "center",
+          marginBottom: 14,
+          fontSize: 14,
+          color: "#374151",
+          fontWeight: 500,
+        }}
+      >
+        Room {patient.room} · <span aria-hidden="true">🛏️</span> {patient.bed}
+      </div>
 
-<div
-  style={{
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    gap: 16,
-    marginBottom: 14,
-  }}
->
-  <div style={{ flex: 1 }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+          gap: 16,
+          marginBottom: 14,
+        }}
+      >
+        <div style={{ flex: 1 }}>
           <div className={getSensorClass(patient)} style={{ marginBottom: 12 }}>
             {getSensorLabel(patient)}
           </div>
@@ -142,12 +143,6 @@ export default function PatientCard({
             Pi connected
             <StatusDot connected={piConnected} />
           </div>
-
-          <div className="patient-card__meta" style={{ marginTop: 12 }}>
-            Room {patient.room}
-          </div>
-
-          <div className="patient-card__meta">{patient.bed}</div>
         </div>
 
         <div
@@ -191,7 +186,9 @@ export default function PatientCard({
           fontWeight: 600,
         }}
       >
-        <span aria-hidden="true" style={{ fontSize: 18 }}>👣</span>
+        <span aria-hidden="true" style={{ fontSize: 18 }}>
+          👣
+        </span>
         <span>Steps: {today?.steps ?? 0}</span>
       </div>
 
@@ -205,7 +202,9 @@ export default function PatientCard({
           fontWeight: 600,
         }}
       >
-        <span aria-hidden="true" style={{ fontSize: 18, color: "#dc2626" }}>♥</span>
+        <span aria-hidden="true" style={{ fontSize: 18, color: "#dc2626" }}>
+          ♥
+        </span>
         <span>
           Heart rate: {displayHeartRate ?? "—"}
           {displayHeartRate ? " bpm" : ""}

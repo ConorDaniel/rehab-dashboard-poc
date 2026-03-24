@@ -10,6 +10,7 @@ function registerPatientRoutes(server) {
       const patients = await Promise.all(
         snapshot.docs.map(async (doc) => {
           const data = doc.data();
+          const piId = data.piId ?? null;
 
           const safeFitbit = data.fitbit
             ? {
@@ -31,14 +32,22 @@ function registerPatientRoutes(server) {
 
           const todayMetrics = metricsSnap.empty ? null : metricsSnap.docs[0].data();
 
+          let device = null;
+          if (piId) {
+            const deviceSnap = await db().collection("devices").doc(piId).get();
+            device = deviceSnap.exists ? deviceSnap.data() : null;
+          }
+
           return {
             id: doc.id,
             name: data.name,
             room: data.room,
             bed: data.bed,
+            piId,
             wardId: data.wardId ?? null,
             hospitalId: data.hospitalId ?? null,
             sensor: data.sensor ?? null,
+            device,
             fitbit: safeFitbit,
             todayMetrics,
           };
@@ -63,6 +72,13 @@ function registerPatientRoutes(server) {
       }
 
       const patient = patientSnap.data();
+      const piId = patient.piId ?? null;
+
+      let device = null;
+      if (piId) {
+        const deviceSnap = await db().collection("devices").doc(piId).get();
+        device = deviceSnap.exists ? deviceSnap.data() : null;
+      }
 
       const metricsSnap = await patientRef
         .collection("dailyMetrics")
@@ -79,8 +95,10 @@ function registerPatientRoutes(server) {
         patientName: patient.name,
         room: patient.room,
         bed: patient.bed,
+        piId,
         lastUpdated: patient.dashboard?.lastUpdated ?? null,
         sensor: patient.sensor ?? null,
+        device,
         metrics,
       };
     },
@@ -100,6 +118,15 @@ function registerPatientRoutes(server) {
         return h.response({ message: "Patient not found" }).code(404);
       }
 
+      const patient = patientSnap.data();
+      const piId = patient.piId ?? null;
+
+      let device = null;
+      if (piId) {
+        const deviceSnap = await db().collection("devices").doc(piId).get();
+        device = deviceSnap.exists ? deviceSnap.data() : null;
+      }
+
       const metricsSnap = await patientRef
         .collection("dailyMetrics")
         .orderBy("date", "desc")
@@ -112,7 +139,9 @@ function registerPatientRoutes(server) {
 
       return {
         patientId: id,
+        piId,
         days,
+        device,
         metrics,
       };
     },

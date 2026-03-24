@@ -3,8 +3,11 @@ export type Patient = {
   name: string;
   room: string;
   bed: string;
+  piId?: string | null;
+
   wardId?: string | null;
   hospitalId?: string | null;
+
   sensor?: {
     currentState?: string;
     lastChangedAt?: string;
@@ -14,7 +17,25 @@ export type Patient = {
     lastFrameAgeSec?: number;
     lastSeenAt?: string;
     lastGmag?: number;
-  };
+  } | null;
+
+  device?: {
+    piId?: string;
+    patientId?: string;
+    hostname?: string;
+    ipAddress?: string;
+
+    connected?: boolean;
+    deviceStatus?: string;
+
+    lastHeartbeatAt?: string;
+    lastTelemetryAt?: string;
+    lastPingAt?: string;
+    lastFrameAgeSec?: number;
+
+    updatedAt?: string;
+  } | null;
+
   fitbit?: {
     connected?: boolean;
     fitbitUserId?: string | null;
@@ -22,6 +43,7 @@ export type Patient = {
     lastSyncAt?: string | null;
     lastRefreshAt?: string | null;
   } | null;
+
   todayMetrics?: {
     date: string;
     steps?: number;
