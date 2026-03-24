@@ -10,6 +10,7 @@ from device_model import DeviceModel
 # =========================
 
 TARGET_MAC = "E1:B7:EA:2D:8A:AE"
+PI_ID = "pi-p1"
 PATIENT_ID = "p1"
 API_URL = "http://192.168.1.57:4000/telemetry"
 
@@ -87,14 +88,17 @@ def handle_data(device):
         f"Gmag:{gmag:7.2f}  {instant_state}"
     )
 
+    # Initialise raw state
     if _raw_state is None:
         _raw_state = instant_state
         _raw_state_since = now
 
+    # Detect raw state change
     if instant_state != _raw_state:
         _raw_state = instant_state
         _raw_state_since = now
 
+    # Initialise stable state and send first persisted state
     if _stable_state is None:
         _stable_state = _raw_state
         _stable_state_since = now
@@ -102,6 +106,7 @@ def handle_data(device):
 
         post({
             "type": "state_change",
+            "piId": PI_ID,
             "patientId": PATIENT_ID,
             "state": _stable_state,
             "gmag": gmag,
@@ -109,19 +114,25 @@ def handle_data(device):
         })
         return
 
-    if _raw_state != _stable_state and (now - _raw_state_since) >= STATE_CHANGE_PERSIST_SECONDS:
+    # Promote raw state to stable state after persistence interval
+    if (
+        _raw_state != _stable_state
+        and (now - _raw_state_since) >= STATE_CHANGE_PERSIST_SECONDS
+    ):
         _stable_state = _raw_state
         _stable_state_since = now
         _rest_silenced = False
 
         post({
             "type": "state_change",
+            "piId": PI_ID,
             "patientId": PATIENT_ID,
             "state": _stable_state,
             "gmag": gmag,
             "timestamp": utc_now_iso(),
         })
 
+    # Silence REST samples after enough continuous rest
     if _stable_state == "REST":
         if (now - _stable_state_since) >= REST_SILENCE_AFTER_SECONDS:
             _rest_silenced = True
@@ -133,6 +144,7 @@ def handle_data(device):
     if send_samples:
         post({
             "type": "sample",
+            "piId": PI_ID,
             "patientId": PATIENT_ID,
             "state": _stable_state,
             "gmag": gmag,
