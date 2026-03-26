@@ -17,6 +17,13 @@ export type Patient = {
     lastFrameAgeSec?: number;
     lastSeenAt?: string;
     lastGmag?: number;
+
+    restQualified?: boolean;
+    movementStartedAt?: string | null;
+    movementStartedAtMs?: number | null;
+    alertSent?: boolean;
+    alertSentAt?: string | null;
+    alertActive?: boolean;
   } | null;
 
   device?: {

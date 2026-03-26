@@ -1,8 +1,5 @@
 const { db } = require("../firestore");
-const {
-  shouldTriggerMovementAlert,
-  sendBlynkAlert,
-} = require("../services/sensor/movement-alerts");
+const { evaluateMovementAlert } = require("../services/sensor/movement-alerts");
 
 function registerTelemetryRoutes(server) {
   server.route({
@@ -47,6 +44,7 @@ function registerTelemetryRoutes(server) {
           return h.response({ message: "Patient not found" }).code(404);
         }
 
+        const previousSensor = patientSnap.data().sensor || {};
         const nowIso = new Date().toISOString();
 
         // Refresh telemetry freshness for any telemetry message
@@ -60,6 +58,7 @@ function registerTelemetryRoutes(server) {
           { merge: true }
         );
 
+        // Update basic patient sensor freshness for any telemetry message
         await patientRef.set(
           {
             sensor: {
@@ -70,12 +69,8 @@ function registerTelemetryRoutes(server) {
           { merge: true }
         );
 
-        // Ignore samples after freshness update
-        if (type === "sample") {
-          return { ok: true, persisted: false, ignoredType: "sample" };
-        }
-
-        if (type !== "state_change") {
+        // Accept only sample and state_change
+        if (type !== "sample" && type !== "state_change") {
           return h
             .response({ message: `Unsupported telemetry type: ${type}` })
             .code(400);
@@ -83,65 +78,55 @@ function registerTelemetryRoutes(server) {
 
         if (!state) {
           return h
-            .response({ message: "state is required for state_change" })
+            .response({ message: "state is required for telemetry" })
             .code(400);
         }
 
-        // Read previous persisted state BEFORE writing this one
-        const previousEventSnap = await patientRef
-          .collection("sensorEvents")
-          .orderBy("timestampMs", "desc")
-          .limit(1)
-          .get();
+        // Persist only state changes
+        if (type === "state_change") {
+          console.log(`Writing sensor event for ${patientId}: ${state}`);
 
-        const previousEvent = previousEventSnap.empty
-          ? null
-          : previousEventSnap.docs[0].data();
+          await patientRef.collection("sensorEvents").add({
+            type: "state_change",
+            state,
+            stateStartedAt: timestamp,
+            stateStartedAtMs: eventMs,
+            timestamp,
+            timestampMs: eventMs,
+            gmag: typeof gmag === "number" ? gmag : null,
+            createdAt: nowIso,
+          });
 
-        console.log("Previous event before write:", previousEvent);
-
-        console.log(`Writing sensor event for ${patientId}: ${state}`);
-
-        // Persist the new state change
-        await patientRef.collection("sensorEvents").add({
-          type: "state_change",
-          state,
-          stateStartedAt: timestamp,
-          stateStartedAtMs: eventMs,
-          timestamp,
-          timestampMs: eventMs,
-          gmag: typeof gmag === "number" ? gmag : null,
-          createdAt: nowIso,
-        });
-
-        // Update patient summary
-        await patientRef.set(
-          {
-            sensor: {
-              currentState: state,
-              lastChangedAt: timestamp,
-              lastSeenAt: timestamp,
-              lastGmag: typeof gmag === "number" ? gmag : null,
+          // Update live state transition summary
+          await patientRef.set(
+            {
+              sensor: {
+                currentState: state,
+                lastChangedAt: timestamp,
+                lastSeenAt: timestamp,
+                lastGmag: typeof gmag === "number" ? gmag : null,
+              },
             },
-          },
-          { merge: true }
-        );
-
-        // Fire alert immediately when rule is met
-        if (shouldTriggerMovementAlert(previousEvent, state, eventMs)) {
-          console.log(
-            `Alert rule met for ${patientId}: MOVING after enough REST — sending Blynk now`
-          );
-          await sendBlynkAlert(patientId, piId);
-        } else if (state === "MOVING") {
-          console.log(
-            `No alert sent for ${patientId}: previous state was not long enough REST`
+            { merge: true }
           );
         }
 
-        console.log(`Firestore updated for ${patientId} via ${piId}: ${state}`);
+        // Evaluate alert logic for BOTH sample and state_change
+        await evaluateMovementAlert({
+          patientRef,
+          previousSensor,
+          patientId,
+          piId,
+          state,
+          timestamp,
+          eventMs,
+        });
 
-        return h.response({ ok: true, persisted: "state_change" }).code(201);
+        console.log(
+          `Telemetry processed for ${patientId} via ${piId}: ${type} ${state}`
+        );
+
+        return h.response({ ok: true, processed: type }).code(201);
       } catch (error) {
         console.error("Telemetry error:", error.message);
         return h.response({ error: error.message }).code(500);

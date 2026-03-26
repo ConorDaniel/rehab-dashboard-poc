@@ -62,7 +62,8 @@ function formatActivityDate(date?: string): string {
   });
 }
 
-function getCardBackground(sensorConnected: boolean): string {
+function getCardBackground(sensorConnected: boolean, alertActive: boolean): string {
+  if (alertActive) return "#eff6ff"; // blue alert
   return sensorConnected ? "#dcfce7" : "#fee2e2";
 }
 
@@ -83,17 +84,23 @@ export default function PatientCard({
 
   const sensorConnected = isRecentIsoTime(patient.device?.lastTelemetryAt, 15000);
   const displayHeartRate = today?.heartRate ?? today?.restingHeartRate ?? null;
+  const alertActive = !!patient.sensor?.alertActive;
 
-  const cardBackground = getCardBackground(sensorConnected);
+  const cardBackground = getCardBackground(sensorConnected, alertActive);
 
   return (
     <div
-      className="patient-card"
+      className={`patient-card ${alertActive ? "patient-card--alert" : ""}`}
       style={{
         background: cardBackground,
-        transition: "transform 0.2s ease, box-shadow 0.2s ease",
       }}
     >
+      {alertActive && (
+        <div className="patient-card__alert-badge">
+          ALERT
+        </div>
+      )}
+
       <div
         className="patient-card__name"
         style={{
@@ -134,6 +141,12 @@ export default function PatientCard({
             Sensor connected
             <StatusDot connected={sensorConnected} />
           </div>
+
+          {alertActive && (
+            <div className="patient-card__alert-text">
+              Movement after rest
+            </div>
+          )}
         </div>
 
         <div
@@ -149,6 +162,7 @@ export default function PatientCard({
             color: "#6b7280",
             fontWeight: 600,
             flexShrink: 0,
+            overflow: "hidden",
           }}
         >
           Headshot

@@ -113,7 +113,9 @@ button {
   transition:
     transform 180ms ease,
     box-shadow 180ms ease,
-    border-color 180ms ease;
+    border-color 180ms ease,
+    background 180ms ease;
+  position: relative;
 }
 
 .patient-card:hover {
@@ -134,7 +136,6 @@ button {
   color: #555;
 }
 
-/* ✅ SENSOR STATUS (FIXED POSITION) */
 .patient-card__status {
   display: inline-block;
   margin-top: 16px;
@@ -202,6 +203,46 @@ button {
   transform: translateY(-1px);
 }
 
+/* ALERT STATE */
+.patient-card--alert {
+  border-color: #dc2626;
+  background: #fef2f2;
+  box-shadow: 0 0 0 6px rgba(220, 38, 38, 0.14);
+  animation: patientAlertPulse 1.2s infinite;
+}
+
+.patient-card__alert-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: #dc2626;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  letter-spacing: 0.3px;
+}
+
+.patient-card__alert-text {
+  margin-top: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #b91c1c;
+}
+
+@keyframes patientAlertPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.28);
+  }
+  70% {
+    box-shadow: 0 0 0 14px rgba(220, 38, 38, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0);
+  }
+}
+
 .app-footer {
   background: #ffffff;
   border-top: 1px solid #e6e8eb;
@@ -253,7 +294,6 @@ button {
   grid-column: span 2;
 }
 
-/* MOBILE */
 @media (max-width: 640px) {
   .app-header__inner,
   .app-footer__inner {
@@ -272,5 +312,13 @@ button {
 
   .patient-card {
     padding: 22px;
+  }
+
+  .dashboard-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-layout section:first-child {
+    grid-column: span 1;
   }
 }
