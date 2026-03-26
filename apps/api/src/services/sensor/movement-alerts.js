@@ -1,9 +1,6 @@
 const axios = require("axios");
 
-const REST_MIN_MS = 10 * 1000;       // 10 seconds for demo
-const MOVING_CONFIRM_MS = 10 * 1000; // 10 seconds for demo
-
-const pendingAlerts = new Map();
+const REST_MIN_MS = 10 * 1000; // demo value: 10 seconds
 
 async function sendBlynkAlert(patientId, piId) {
   const server = process.env.BLYNK_SERVER;
@@ -38,48 +35,16 @@ async function sendBlynkAlert(patientId, piId) {
   console.log(`Blynk alert sent for patient ${patientId} via ${piId}`);
 }
 
-function clearPendingAlert(patientId) {
-  const existing = pendingAlerts.get(patientId);
-  if (existing) {
-    console.log(`Clearing pending alert for ${patientId}`);
-    clearTimeout(existing);
-    pendingAlerts.delete(patientId);
-  }
-}
-
-function scheduleMovementAlert({ patientId, piId }) {
-  clearPendingAlert(patientId);
-
-  console.log(
-    `Scheduling Blynk alert for ${patientId} in ${MOVING_CONFIRM_MS}ms`
-  );
-
-  const timeoutId = setTimeout(async () => {
-    try {
-      console.log(`Timer fired for ${patientId}`);
-      await sendBlynkAlert(patientId, piId);
-    } catch (error) {
-      const message =
-        error.response?.data?.error?.message ||
-        error.response?.data?.message ||
-        error.message;
-      console.error("Failed to send Blynk alert:", message);
-    } finally {
-      pendingAlerts.delete(patientId);
-    }
-  }, MOVING_CONFIRM_MS);
-
-  pendingAlerts.set(patientId, timeoutId);
-}
-
-function shouldTriggerMovementAlert(previousEvent, currentState) {
+function shouldTriggerMovementAlert(previousEvent, currentState, currentEventMs) {
   const restStartMs = previousEvent?.timestampMs ?? previousEvent?.stateStartedAtMs;
-  const restDurationMs = restStartMs ? Date.now() - restStartMs : null;
+  const restDurationMs =
+    restStartMs && currentEventMs ? currentEventMs - restStartMs : null;
 
   console.log("Alert check", {
     previousState: previousEvent?.state,
     currentState,
     restStartMs,
+    currentEventMs,
     restDurationMs,
     REST_MIN_MS,
   });
@@ -87,13 +52,12 @@ function shouldTriggerMovementAlert(previousEvent, currentState) {
   if (!previousEvent) return false;
   if (currentState !== "MOVING") return false;
   if (previousEvent.state !== "REST") return false;
-  if (!restStartMs) return false;
+  if (!restStartMs || !currentEventMs) return false;
 
   return restDurationMs >= REST_MIN_MS;
 }
 
 module.exports = {
   shouldTriggerMovementAlert,
-  scheduleMovementAlert,
-  clearPendingAlert,
+  sendBlynkAlert,
 };

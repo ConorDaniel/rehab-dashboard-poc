@@ -1,6 +1,9 @@
 const { db } = require("../../firestore");
 const { getPatientFitbitConfig } = require("./fitbit-config-store");
-const { getHeartRateIntradayToday } = require("./fitbit-client");
+const {
+  getHeartRateDailyToday,
+  extractRestingHeartRate,
+} = require("./fitbit-client");
 const { refreshAccessToken } = require("./fitbit-auth");
 
 function getIrishDateString() {
@@ -69,11 +72,8 @@ async function syncFitbitForPatient(id) {
   let heartError = null;
 
   try {
-    const heartResponse = await getHeartRateIntradayToday(accessToken);
-
-    restingHeartRate =
-      heartResponse["activities-heart"]?.[0]?.value?.restingHeartRate ?? null;
-
+    const heartResponse = await getHeartRateDailyToday(accessToken);
+    restingHeartRate = extractRestingHeartRate(heartResponse);
     heartRate = restingHeartRate;
   } catch (err) {
     heartError = err.message;

@@ -14,6 +14,8 @@ import {
   Tooltip,
   ResponsiveContainer,
   CartesianGrid,
+  LineChart,
+  Line,
 } from "recharts";
 
 function MovementDonut({
@@ -30,7 +32,6 @@ function MovementDonut({
 
   const clampedMoving = Math.max(0, Math.min(100, movingPercent));
   const movingLength = (clampedMoving / 100) * circumference;
-  const movingOffset = circumference - movingLength;
 
   return (
     <div
@@ -51,7 +52,6 @@ function MovementDonut({
       >
         <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
           <g transform={`rotate(-90 ${size / 2} ${size / 2})`}>
-            {/* Base ring = At Rest */}
             <circle
               cx={size / 2}
               cy={size / 2}
@@ -60,7 +60,6 @@ function MovementDonut({
               stroke="#22c55e"
               strokeWidth={stroke}
             />
-            {/* Overlay arc = Moving */}
             <circle
               cx={size / 2}
               cy={size / 2}
@@ -148,6 +147,7 @@ export default function PatientDashboardPage() {
         setDashboard((prev) =>
           prev ? { ...prev, metrics: data.metrics } : null
         );
+        setError(null);
       })
       .catch((e: unknown) => {
         setError(e instanceof Error ? e.message : String(e));
@@ -201,6 +201,13 @@ export default function PatientDashboardPage() {
     };
   }, [sensorSummary]);
 
+  const heartRateData = useMemo(() => {
+    return (dashboard?.metrics ?? []).map((metric) => ({
+      ...metric,
+      displayHeartRate: metric.heartRate ?? metric.restingHeartRate ?? null,
+    }));
+  }, [dashboard]);
+
   return (
     <div className="app-shell">
       <header className="app-header">
@@ -244,7 +251,7 @@ export default function PatientDashboardPage() {
             </section>
 
             <section className="dashboard-panel">
-              <div style={{ display: "flex", gap: "8px", marginBottom: "12px" }}>
+              <div style={{ display: "flex", gap: "8px", marginBottom: "12px", flexWrap: "wrap" }}>
                 {[7, 14, 21, 30].map((value) => (
                   <button
                     key={value}
@@ -268,6 +275,33 @@ export default function PatientDashboardPage() {
                     <Tooltip />
                     <Bar dataKey="steps" fill="#3b82f6" radius={[4, 4, 0, 0]} />
                   </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </section>
+
+            <section className="dashboard-panel">
+              <h2 className="dashboard-panel__title">Heart Rate Trend</h2>
+
+              <div style={{ width: "100%", height: 260 }}>
+                <ResponsiveContainer>
+                  <LineChart data={heartRateData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis />
+                    <Tooltip
+                      formatter={(value: number | null) =>
+                        value == null ? "No data" : `${value} bpm`
+                      }
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="displayHeartRate"
+                      stroke="#dc2626"
+                      strokeWidth={2}
+                      dot={{ r: 3 }}
+                      connectNulls={false}
+                    />
+                  </LineChart>
                 </ResponsiveContainer>
               </div>
             </section>

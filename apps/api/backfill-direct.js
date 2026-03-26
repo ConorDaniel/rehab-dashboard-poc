@@ -1,10 +1,11 @@
 require("dotenv").config();
 
+const fetch = require("node-fetch");
 const { db } = require("./src/firestore");
 const { getPatientFitbitConfig } = require("./src/services/fitbit/fitbit-config-store");
 const { refreshAccessToken } = require("./src/services/fitbit/fitbit-auth");
 
-async function fetchDay(accessToken, date) {
+async function fetchActivityDay(accessToken, date) {
   const res = await fetch(
     `https://api.fitbit.com/1/user/-/activities/date/${date}.json`,
     {
@@ -16,10 +17,32 @@ async function fetchDay(accessToken, date) {
 
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`Fitbit error ${res.status}: ${text}`);
+    throw new Error(`Activity error ${res.status}: ${text}`);
   }
 
   return res.json();
+}
+
+async function fetchHeartDay(accessToken, date) {
+  const res = await fetch(
+    `https://api.fitbit.com/1/user/-/activities/heart/date/${date}/1d.json`,
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    }
+  );
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Heart error ${res.status}: ${text}`);
+  }
+
+  return res.json();
+}
+
+function extractRestingHeartRate(data) {
+  return data?.["activities-heart"]?.[0]?.value?.restingHeartRate ?? null;
 }
 
 function getLastNDates(n) {
@@ -52,12 +75,20 @@ async function run(patientId) {
 
   for (const date of dates) {
     try {
-      const data = await fetchDay(accessToken, date);
-      const summary = data.summary || {};
+      // 🔹 Fetch activity + heart in parallel
+      const [activityData, heartData] = await Promise.all([
+        fetchActivityDay(accessToken, date),
+        fetchHeartDay(accessToken, date),
+      ]);
+
+      const summary = activityData.summary || {};
+      const restingHeartRate = extractRestingHeartRate(heartData);
 
       const metric = {
         date,
         steps: Number(summary.steps) || 0,
+        heartRate: restingHeartRate,
+        restingHeartRate,
         sedentaryMinutes: Number(summary.sedentaryMinutes) || 0,
         lightlyActiveMinutes: Number(summary.lightlyActiveMinutes) || 0,
         fairlyActiveMinutes: Number(summary.fairlyActiveMinutes) || 0,
@@ -72,7 +103,10 @@ async function run(patientId) {
         .doc(date)
         .set(metric, { merge: true });
 
-      console.log("✔", date, metric.steps);
+      console.log("✔", date, {
+        steps: metric.steps,
+        hr: metric.restingHeartRate,
+      });
     } catch (err) {
       console.log("✖", date, err.message);
     }

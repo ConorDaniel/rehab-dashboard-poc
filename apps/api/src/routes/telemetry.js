@@ -1,8 +1,7 @@
 const { db } = require("../firestore");
 const {
   shouldTriggerMovementAlert,
-  scheduleMovementAlert,
-  clearPendingAlert,
+  sendBlynkAlert,
 } = require("../services/sensor/movement-alerts");
 
 function registerTelemetryRoutes(server) {
@@ -30,9 +29,7 @@ function registerTelemetryRoutes(server) {
         }
 
         if (!timestamp) {
-          return h
-            .response({ message: "timestamp is required" })
-            .code(400);
+          return h.response({ message: "timestamp is required" }).code(400);
         }
 
         const eventMs = Date.parse(timestamp);
@@ -52,7 +49,7 @@ function registerTelemetryRoutes(server) {
 
         const nowIso = new Date().toISOString();
 
-        // Update telemetry freshness for ANY telemetry received
+        // Refresh telemetry freshness for any telemetry message
         await db().collection("devices").doc(piId).set(
           {
             piId,
@@ -73,7 +70,7 @@ function registerTelemetryRoutes(server) {
           { merge: true }
         );
 
-        // Ignore samples after refreshing telemetry freshness
+        // Ignore samples after freshness update
         if (type === "sample") {
           return { ok: true, persisted: false, ignoredType: "sample" };
         }
@@ -86,13 +83,11 @@ function registerTelemetryRoutes(server) {
 
         if (!state) {
           return h
-            .response({
-              message: "state is required for state_change",
-            })
+            .response({ message: "state is required for state_change" })
             .code(400);
         }
 
-        // Get previous event BEFORE writing the new one
+        // Read previous persisted state BEFORE writing this one
         const previousEventSnap = await patientRef
           .collection("sensorEvents")
           .orderBy("timestampMs", "desc")
@@ -103,9 +98,11 @@ function registerTelemetryRoutes(server) {
           ? null
           : previousEventSnap.docs[0].data();
 
+        console.log("Previous event before write:", previousEvent);
+
         console.log(`Writing sensor event for ${patientId}: ${state}`);
 
-        // 1. Write event to patient history
+        // Persist the new state change
         await patientRef.collection("sensorEvents").add({
           type: "state_change",
           state,
@@ -117,7 +114,7 @@ function registerTelemetryRoutes(server) {
           createdAt: nowIso,
         });
 
-        // 2. Update patient summary
+        // Update patient summary
         await patientRef.set(
           {
             sensor: {
@@ -130,19 +127,15 @@ function registerTelemetryRoutes(server) {
           { merge: true }
         );
 
-        // 3. Alert logic for POC
-        if (state === "REST") {
-          clearPendingAlert(patientId);
-        }
-
-        if (shouldTriggerMovementAlert(previousEvent, state)) {
+        // Fire alert immediately when rule is met
+        if (shouldTriggerMovementAlert(previousEvent, state, eventMs)) {
           console.log(
-            `Alert rule met for ${patientId}: moving after rest; scheduling confirmation`
+            `Alert rule met for ${patientId}: MOVING after enough REST — sending Blynk now`
           );
-          scheduleMovementAlert({ patientId, piId });
+          await sendBlynkAlert(patientId, piId);
         } else if (state === "MOVING") {
           console.log(
-            `No alert scheduled for ${patientId}: previous state was not long enough REST`
+            `No alert sent for ${patientId}: previous state was not long enough REST`
           );
         }
 

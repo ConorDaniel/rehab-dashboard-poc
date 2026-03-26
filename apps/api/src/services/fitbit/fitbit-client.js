@@ -33,13 +33,18 @@ async function getStepsIntradayToday(accessToken) {
   return fitbitGet(path, accessToken);
 }
 
-async function getHeartRateIntradayToday(accessToken) {
+async function getHeartRateDailyToday(accessToken) {
   const date = getTodayDateString();
-  const path = `/user/-/activities/heart/date/${date}/1d/1min.json`;
+  const path = `/user/-/activities/heart/date/${date}/1d.json`;
   return fitbitGet(path, accessToken);
+}
+
+function extractRestingHeartRate(data) {
+  return data?.["activities-heart"]?.[0]?.value?.restingHeartRate ?? null;
 }
 
 module.exports = {
   getStepsIntradayToday,
-  getHeartRateIntradayToday,
+  getHeartRateDailyToday,
+  extractRestingHeartRate,
 };

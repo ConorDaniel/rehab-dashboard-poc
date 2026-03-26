@@ -62,10 +62,8 @@ function formatActivityDate(date?: string): string {
   });
 }
 
-function getCardBackground(sensorConnected: boolean, piConnected: boolean): string {
-  if (sensorConnected && piConnected) return "#dcfce7";
-  if (sensorConnected || piConnected) return "#fef3c7";
-  return "#fee2e2";
+function getCardBackground(sensorConnected: boolean): string {
+  return sensorConnected ? "#dcfce7" : "#fee2e2";
 }
 
 function isRecentIsoTime(isoString?: string | null, maxAgeMs = 15000): boolean {
@@ -83,12 +81,10 @@ export default function PatientCard({
 }: PatientCardProps) {
   const today = patient.todayMetrics;
 
-  const piConnected = patient.device?.deviceStatus === "online";
   const sensorConnected = isRecentIsoTime(patient.device?.lastTelemetryAt, 15000);
-
   const displayHeartRate = today?.heartRate ?? today?.restingHeartRate ?? null;
 
-  const cardBackground = getCardBackground(sensorConnected, piConnected);
+  const cardBackground = getCardBackground(sensorConnected);
 
   return (
     <div
@@ -137,11 +133,6 @@ export default function PatientCard({
           <div className="patient-card__meta" style={{ marginBottom: 8 }}>
             Sensor connected
             <StatusDot connected={sensorConnected} />
-          </div>
-
-          <div className="patient-card__meta">
-            Pi connected
-            <StatusDot connected={piConnected} />
           </div>
         </div>
 
