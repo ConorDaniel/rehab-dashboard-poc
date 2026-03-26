@@ -17,9 +17,10 @@ API_URL = "http://192.168.1.57:4000/telemetry"
 PRINT_RATE_HZ = 4
 MOVEMENT_THRESHOLD = 8
 
-# Debounce / persistence rules
 STATE_CHANGE_PERSIST_SECONDS = 3
-REST_SILENCE_AFTER_SECONDS = 10
+
+# NEW: instead of silence, send low-frequency heartbeat
+REST_HEARTBEAT_SECONDS = 10
 
 # Heartbeat helper file (read by heartbeat.py)
 LAST_SEEN_FILE = "/tmp/p1_last_seen"
@@ -36,7 +37,8 @@ _raw_state_since = 0.0
 _stable_state = None
 _stable_state_since = 0.0
 
-_rest_silenced = False
+# NEW
+_last_rest_sample_sent = 0.0
 
 
 def utc_now_iso() -> str:
@@ -44,7 +46,6 @@ def utc_now_iso() -> str:
 
 
 def post(payload: dict) -> None:
-    """Best-effort POST to the local Hapi API."""
     try:
         requests.post(API_URL, json=payload, timeout=2)
     except Exception as e:
@@ -55,7 +56,7 @@ def handle_data(device):
     global _last_tick, _last_seen_write
     global _raw_state, _raw_state_since
     global _stable_state, _stable_state_since
-    global _rest_silenced
+    global _last_rest_sample_sent
 
     gx = device.get("AsX")
     gy = device.get("AsY")
@@ -66,7 +67,7 @@ def handle_data(device):
 
     now = time.time()
 
-    # Update "last seen" marker for heartbeat.py (write max ~5Hz)
+    # Update heartbeat marker (used by heartbeat.py)
     if now - _last_seen_write > 0.2:
         try:
             with open(LAST_SEEN_FILE, "w") as f:
@@ -98,11 +99,10 @@ def handle_data(device):
         _raw_state = instant_state
         _raw_state_since = now
 
-    # Initialise stable state and send first persisted state
+    # Initialise stable state
     if _stable_state is None:
         _stable_state = _raw_state
         _stable_state_since = now
-        _rest_silenced = (_stable_state == "REST")
 
         post({
             "type": "state_change",
@@ -114,14 +114,15 @@ def handle_data(device):
         })
         return
 
-    # Promote raw state to stable state after persistence interval
+    # Promote raw → stable
     if (
         _raw_state != _stable_state
         and (now - _raw_state_since) >= STATE_CHANGE_PERSIST_SECONDS
     ):
         _stable_state = _raw_state
         _stable_state_since = now
-        _rest_silenced = False
+
+        print(f"STATE CHANGE → {_stable_state}")
 
         post({
             "type": "state_change",
@@ -132,16 +133,23 @@ def handle_data(device):
             "timestamp": utc_now_iso(),
         })
 
-    # Silence REST samples after enough continuous rest
-    if _stable_state == "REST":
-        if (now - _stable_state_since) >= REST_SILENCE_AFTER_SECONDS:
-            _rest_silenced = True
+    # =========================
+    # SAMPLE LOGIC (FIXED)
+    # =========================
 
-    send_samples = True
-    if _stable_state == "REST" and _rest_silenced:
-        send_samples = False
+    send_sample = False
 
-    if send_samples:
+    if _stable_state == "MOVING":
+        # send regularly when moving
+        send_sample = True
+
+    elif _stable_state == "REST":
+        # send heartbeat sample every N seconds
+        if (now - _last_rest_sample_sent) >= REST_HEARTBEAT_SECONDS:
+            send_sample = True
+            _last_rest_sample_sent = now
+
+    if send_sample:
         post({
             "type": "sample",
             "piId": PI_ID,
