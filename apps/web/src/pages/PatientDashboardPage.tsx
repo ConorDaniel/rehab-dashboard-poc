@@ -14,8 +14,6 @@ import {
   Tooltip,
   ResponsiveContainer,
   CartesianGrid,
-  LineChart,
-  Line,
 } from "recharts";
 
 function MovementDonut({
@@ -122,7 +120,13 @@ export default function PatientDashboardPage() {
 
   const [dashboard, setDashboard] = useState<PatientDashboard | null>(null);
   const [sensorSummary, setSensorSummary] = useState<SensorSummary | null>(null);
-  const [days, setDays] = useState(7);
+
+  const [stepsDays, setStepsDays] = useState(7);
+  const [heartDays, setHeartDays] = useState(7);
+
+  const [stepsMetrics, setStepsMetrics] = useState<PatientDashboard["metrics"]>([]);
+  const [heartMetrics, setHeartMetrics] = useState<PatientDashboard["metrics"]>([]);
+
   const [error, setError] = useState<string | null>(null);
   const [sensorError, setSensorError] = useState<string | null>(null);
 
@@ -132,6 +136,8 @@ export default function PatientDashboardPage() {
     fetchPatientDashboard(id)
       .then((data) => {
         setDashboard(data);
+        setStepsMetrics(data.metrics ?? []);
+        setHeartMetrics(data.metrics ?? []);
         setError(null);
       })
       .catch((e: unknown) => {
@@ -142,17 +148,28 @@ export default function PatientDashboardPage() {
   useEffect(() => {
     if (!id) return;
 
-    fetchPatientTrends(id, days)
+    fetchPatientTrends(id, stepsDays)
       .then((data) => {
-        setDashboard((prev) =>
-          prev ? { ...prev, metrics: data.metrics } : null
-        );
+        setStepsMetrics(data.metrics ?? []);
         setError(null);
       })
       .catch((e: unknown) => {
         setError(e instanceof Error ? e.message : String(e));
       });
-  }, [id, days]);
+  }, [id, stepsDays]);
+
+  useEffect(() => {
+    if (!id) return;
+
+    fetchPatientTrends(id, heartDays)
+      .then((data) => {
+        setHeartMetrics(data.metrics ?? []);
+        setError(null);
+      })
+      .catch((e: unknown) => {
+        setError(e instanceof Error ? e.message : String(e));
+      });
+  }, [id, heartDays]);
 
   useEffect(() => {
     if (!id) return;
@@ -168,7 +185,9 @@ export default function PatientDashboardPage() {
   }, [id]);
 
   const latestDay =
-    dashboard?.metrics && dashboard.metrics.length > 0
+    stepsMetrics && stepsMetrics.length > 0
+      ? stepsMetrics[stepsMetrics.length - 1]
+      : dashboard?.metrics && dashboard.metrics.length > 0
       ? dashboard.metrics[dashboard.metrics.length - 1]
       : null;
 
@@ -202,11 +221,11 @@ export default function PatientDashboardPage() {
   }, [sensorSummary]);
 
   const heartRateData = useMemo(() => {
-    return (dashboard?.metrics ?? []).map((metric) => ({
+    return (heartMetrics ?? []).map((metric) => ({
       ...metric,
       displayHeartRate: metric.heartRate ?? metric.restingHeartRate ?? null,
     }));
-  }, [dashboard]);
+  }, [heartMetrics]);
 
   return (
     <div className="app-shell">
@@ -251,24 +270,31 @@ export default function PatientDashboardPage() {
             </section>
 
             <section className="dashboard-panel">
-              <div style={{ display: "flex", gap: "8px", marginBottom: "12px", flexWrap: "wrap" }}>
+              <h2 className="dashboard-panel__title">Steps Trend</h2>
+
+              <div
+                style={{
+                  display: "flex",
+                  gap: "8px",
+                  marginBottom: "12px",
+                  flexWrap: "wrap",
+                }}
+              >
                 {[7, 14, 21, 30].map((value) => (
                   <button
-                    key={value}
+                    key={`steps-${value}`}
                     type="button"
                     className="patient-card__button"
-                    onClick={() => setDays(value)}
+                    onClick={() => setStepsDays(value)}
                   >
                     Last {value} days
                   </button>
                 ))}
               </div>
 
-              <h2 className="dashboard-panel__title">Steps Trend</h2>
-
               <div style={{ width: "100%", height: 260 }}>
                 <ResponsiveContainer>
-                  <BarChart data={dashboard.metrics}>
+                  <BarChart data={stepsMetrics}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="date" />
                     <YAxis />
@@ -282,9 +308,29 @@ export default function PatientDashboardPage() {
             <section className="dashboard-panel">
               <h2 className="dashboard-panel__title">Heart Rate Trend</h2>
 
+              <div
+                style={{
+                  display: "flex",
+                  gap: "8px",
+                  marginBottom: "12px",
+                  flexWrap: "wrap",
+                }}
+              >
+                {[7, 14, 21, 30].map((value) => (
+                  <button
+                    key={`heart-${value}`}
+                    type="button"
+                    className="patient-card__button"
+                    onClick={() => setHeartDays(value)}
+                  >
+                    Last {value} days
+                  </button>
+                ))}
+              </div>
+
               <div style={{ width: "100%", height: 260 }}>
                 <ResponsiveContainer>
-                  <LineChart data={heartRateData}>
+                  <BarChart data={heartRateData}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="date" />
                     <YAxis />
@@ -293,15 +339,12 @@ export default function PatientDashboardPage() {
                         value == null ? "No data" : `${value} bpm`
                       }
                     />
-                    <Line
-                      type="monotone"
+                    <Bar
                       dataKey="displayHeartRate"
-                      stroke="#dc2626"
-                      strokeWidth={2}
-                      dot={{ r: 3 }}
-                      connectNulls={false}
+                      fill="#dc2626"
+                      radius={[4, 4, 0, 0]}
                     />
-                  </LineChart>
+                  </BarChart>
                 </ResponsiveContainer>
               </div>
             </section>
