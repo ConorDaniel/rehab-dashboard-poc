@@ -1,4 +1,5 @@
 import type { Patient } from "../types/patient";
+import { useNavigate } from "react-router-dom";
 
 type PatientCardProps = {
   patient: Patient;
@@ -8,13 +9,8 @@ type PatientCardProps = {
 function getSensorLabel(patient: Patient): string {
   if (!patient.sensor) return "No sensor data";
 
-  if (patient.sensor.currentState === "REST") {
-    return "At rest";
-  }
-
-  if (patient.sensor.currentState === "MOVING") {
-    return "Moving";
-  }
+  if (patient.sensor.currentState === "REST") return "At rest";
+  if (patient.sensor.currentState === "MOVING") return "Moving";
 
   return "Sensor status unknown";
 }
@@ -22,13 +18,11 @@ function getSensorLabel(patient: Patient): string {
 function getSensorClass(patient: Patient): string {
   if (!patient.sensor) return "patient-card__status patient-card__status--unknown";
 
-  if (patient.sensor.currentState === "REST") {
+  if (patient.sensor.currentState === "REST")
     return "patient-card__status patient-card__status--rest";
-  }
 
-  if (patient.sensor.currentState === "MOVING") {
+  if (patient.sensor.currentState === "MOVING")
     return "patient-card__status patient-card__status--moving";
-  }
 
   return "patient-card__status patient-card__status--unknown";
 }
@@ -80,11 +74,15 @@ export default function PatientCard({
   patient,
   onOpenDashboard,
 }: PatientCardProps) {
+  const navigate = useNavigate();
   const today = patient.todayMetrics;
 
   const sensorConnected = isRecentIsoTime(patient.device?.lastTelemetryAt, 15000);
   const piConnected = isRecentIsoTime(patient.device?.lastHeartbeatAt, 75000);
-  const displayHeartRate = today?.heartRate ?? today?.restingHeartRate ?? null;
+
+  const displayHeartRate =
+    today?.heartRate ?? today?.restingHeartRate ?? null;
+
   const alertActive = !!patient.sensor?.alertActive;
 
   const cardBackground = getCardBackground(sensorConnected, alertActive);
@@ -92,18 +90,13 @@ export default function PatientCard({
   return (
     <div
       className={`patient-card ${alertActive ? "patient-card--alert" : ""}`}
-      style={{
-        background: cardBackground,
-      }}
+      style={{ background: cardBackground }}
     >
       {alertActive && <div className="patient-card__alert-badge">ALERT</div>}
 
       <div
         className="patient-card__name"
-        style={{
-          textAlign: "center",
-          marginBottom: 6,
-        }}
+        style={{ textAlign: "center", marginBottom: 6 }}
       >
         {patient.name}
       </div>
@@ -193,9 +186,7 @@ export default function PatientCard({
           fontWeight: 600,
         }}
       >
-        <span aria-hidden="true" style={{ fontSize: 18 }}>
-          👣
-        </span>
+        <span aria-hidden="true" style={{ fontSize: 18 }}>👣</span>
         <span>Steps: {today?.steps ?? 0}</span>
       </div>
 
@@ -222,7 +213,10 @@ export default function PatientCard({
         Click below to view trends and patient dashboard.
       </div>
 
-      <div className="patient-card__footer">
+      <div
+        className="patient-card__footer"
+        style={{ display: "flex", flexDirection: "column", gap: 6 }}
+      >
         <button
           type="button"
           className="patient-card__button"
@@ -230,6 +224,16 @@ export default function PatientCard({
         >
           Open dashboard
         </button>
+
+        {patient.id === "p1" && (
+          <button
+            type="button"
+            className="patient-card__button"
+            onClick={() => navigate("/rag")}
+          >
+            RAG Prototype
+          </button>
+        )}
       </div>
     </div>
   );
