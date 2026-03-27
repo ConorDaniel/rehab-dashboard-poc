@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import AppLayout from "../components/AppLayout";
 import {
   fetchPatientDashboard,
   fetchPatientTrends,
@@ -188,8 +189,8 @@ export default function PatientDashboardPage() {
     stepsMetrics && stepsMetrics.length > 0
       ? stepsMetrics[stepsMetrics.length - 1]
       : dashboard?.metrics && dashboard.metrics.length > 0
-      ? dashboard.metrics[dashboard.metrics.length - 1]
-      : null;
+        ? dashboard.metrics[dashboard.metrics.length - 1]
+        : null;
 
   const activityRows = latestDay
     ? [
@@ -227,236 +228,234 @@ export default function PatientDashboardPage() {
     }));
   }, [heartMetrics]);
 
+  const subtitle = dashboard
+    ? `${dashboard.patientName} • Room ${dashboard.room} • ${dashboard.bed}`
+    : `Patient ID: ${id}`;
+
   return (
-    <div className="app-shell">
-      <header className="app-header">
-        <div className="app-header__inner">
-          <div>
-            <div className="app-title">Patient Dashboard</div>
-            <div className="app-subtitle">
-              {dashboard
-                ? `${dashboard.patientName} • Room ${dashboard.room} • ${dashboard.bed}`
-                : `Patient ID: ${id}`}
+    <AppLayout
+      title="Patient Dashboard"
+      subtitle={subtitle}
+      statusText="Live"
+      statusClass="app-status app-status--live"
+      footerLeft="Rehab Dashboard PoC"
+      footerRight=""
+    >
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 20 }}>
+        <button
+          type="button"
+          className="patient-card__button"
+          onClick={() => navigate("/patients")}
+        >
+          Back to ward
+        </button>
+      </div>
+
+      {error && <div className="status status--error">Error: {error}</div>}
+
+      {!error && !dashboard && (
+        <div className="status">Loading patient dashboard…</div>
+      )}
+
+      {dashboard && (
+        <div className="dashboard-layout">
+          <section className="dashboard-panel">
+            <h2 className="dashboard-panel__title">Patient Summary</h2>
+            <p className="dashboard-panel__text">
+              Last updated:{" "}
+              {dashboard.lastUpdated
+                ? new Date(dashboard.lastUpdated).toLocaleString()
+                : "Not available"}
+            </p>
+          </section>
+
+          <section className="dashboard-panel">
+            <h2 className="dashboard-panel__title">Steps Trend</h2>
+
+            <div
+              style={{
+                display: "flex",
+                gap: "8px",
+                marginBottom: "12px",
+                flexWrap: "wrap",
+              }}
+            >
+              {[7, 14, 21, 30].map((value) => (
+                <button
+                  key={`steps-${value}`}
+                  type="button"
+                  className="patient-card__button"
+                  onClick={() => setStepsDays(value)}
+                >
+                  Last {value} days
+                </button>
+              ))}
             </div>
-          </div>
 
-          <button
-            type="button"
-            className="patient-card__button"
-            onClick={() => navigate("/")}
-          >
-            Back to ward
-          </button>
-        </div>
-      </header>
+            <div style={{ width: "100%", height: 260 }}>
+              <ResponsiveContainer>
+                <BarChart data={stepsMetrics}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="date" />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar dataKey="steps" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </section>
 
-      <main className="app-main">
-        {error && <div className="status status--error">Error: {error}</div>}
+          <section className="dashboard-panel">
+            <h2 className="dashboard-panel__title">Heart Rate Trend</h2>
 
-        {!error && !dashboard && (
-          <div className="status">Loading patient dashboard…</div>
-        )}
+            <div
+              style={{
+                display: "flex",
+                gap: "8px",
+                marginBottom: "12px",
+                flexWrap: "wrap",
+              }}
+            >
+              {[7, 14, 21, 30].map((value) => (
+                <button
+                  key={`heart-${value}`}
+                  type="button"
+                  className="patient-card__button"
+                  onClick={() => setHeartDays(value)}
+                >
+                  Last {value} days
+                </button>
+              ))}
+            </div>
 
-        {dashboard && (
-          <div className="dashboard-layout">
-            <section className="dashboard-panel">
-              <h2 className="dashboard-panel__title">Patient Summary</h2>
+            <div style={{ width: "100%", height: 260 }}>
+              <ResponsiveContainer>
+                <BarChart data={heartRateData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="date" />
+                  <YAxis />
+                  <Tooltip
+                    formatter={(value: number | null) =>
+                      value == null ? "No data" : `${value} bpm`
+                    }
+                  />
+                  <Bar
+                    dataKey="displayHeartRate"
+                    fill="#dc2626"
+                    radius={[4, 4, 0, 0]}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </section>
+
+          <section className="dashboard-panel">
+            <h2 className="dashboard-panel__title">
+              Movement over last 24 Hours
+            </h2>
+
+            {sensorError && (
+              <p className="dashboard-panel__text">Error: {sensorError}</p>
+            )}
+
+            {!sensorSummary && !sensorError && (
               <p className="dashboard-panel__text">
-                Last updated:{" "}
-                {dashboard.lastUpdated
-                  ? new Date(dashboard.lastUpdated).toLocaleString()
-                  : "Not available"}
+                Loading movement summary...
               </p>
-            </section>
+            )}
 
-            <section className="dashboard-panel">
-              <h2 className="dashboard-panel__title">Steps Trend</h2>
+            {sensorSummary && (
+              <MovementDonut
+                movingPercent={donutValues.moving}
+                atRestPercent={donutValues.atRest}
+              />
+            )}
+          </section>
 
-              <div
-                style={{
-                  display: "flex",
-                  gap: "8px",
-                  marginBottom: "12px",
-                  flexWrap: "wrap",
-                }}
-              >
-                {[7, 14, 21, 30].map((value) => (
-                  <button
-                    key={`steps-${value}`}
-                    type="button"
-                    className="patient-card__button"
-                    onClick={() => setStepsDays(value)}
-                  >
-                    Last {value} days
-                  </button>
-                ))}
-              </div>
+          <section className="dashboard-panel">
+            <h2 className="dashboard-panel__title">
+              Movement Minutes over last 24 Hours
+            </h2>
 
-              <div style={{ width: "100%", height: 260 }}>
+            {sensorError && (
+              <p className="dashboard-panel__text">Error: {sensorError}</p>
+            )}
+
+            {!sensorSummary && !sensorError && (
+              <p className="dashboard-panel__text">
+                Loading movement minutes...
+              </p>
+            )}
+
+            {sensorSummary && (
+              <div style={{ width: "100%", height: 280 }}>
                 <ResponsiveContainer>
-                  <BarChart data={stepsMetrics}>
+                  <BarChart data={movementMinutesData}>
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" />
+                    <XAxis dataKey="name" />
                     <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="steps" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                    <Tooltip formatter={(value: number) => `${value} mins`} />
+                    <Bar dataKey="minutes" fill="#3b82f6" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
-            </section>
+            )}
+          </section>
 
-            <section className="dashboard-panel">
-              <h2 className="dashboard-panel__title">Heart Rate Trend</h2>
+          <section className="dashboard-panel">
+            <h2 className="dashboard-panel__title">Today’s Activity</h2>
 
-              <div
-                style={{
-                  display: "flex",
-                  gap: "8px",
-                  marginBottom: "12px",
-                  flexWrap: "wrap",
-                }}
-              >
-                {[7, 14, 21, 30].map((value) => (
-                  <button
-                    key={`heart-${value}`}
-                    type="button"
-                    className="patient-card__button"
-                    onClick={() => setHeartDays(value)}
-                  >
-                    Last {value} days
-                  </button>
-                ))}
-              </div>
+            {!latestDay && (
+              <p className="dashboard-panel__text">No activity data available.</p>
+            )}
 
-              <div style={{ width: "100%", height: 260 }}>
-                <ResponsiveContainer>
-                  <BarChart data={heartRateData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" />
-                    <YAxis />
-                    <Tooltip
-                      formatter={(value: number | null) =>
-                        value == null ? "No data" : `${value} bpm`
-                      }
-                    />
-                    <Bar
-                      dataKey="displayHeartRate"
-                      fill="#dc2626"
-                      radius={[4, 4, 0, 0]}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </section>
+            {latestDay && (
+              <div style={{ display: "grid", gap: "16px" }}>
+                {activityRows.map((row) => {
+                  const widthPercent = (row.value / maxActivityValue) * 100;
 
-            <section className="dashboard-panel">
-              <h2 className="dashboard-panel__title">
-                Movement over last 24 Hours
-              </h2>
-
-              {sensorError && (
-                <p className="dashboard-panel__text">Error: {sensorError}</p>
-              )}
-
-              {!sensorSummary && !sensorError && (
-                <p className="dashboard-panel__text">
-                  Loading movement summary...
-                </p>
-              )}
-
-              {sensorSummary && (
-                <MovementDonut
-                  movingPercent={donutValues.moving}
-                  atRestPercent={donutValues.atRest}
-                />
-              )}
-            </section>
-
-            <section className="dashboard-panel">
-              <h2 className="dashboard-panel__title">
-                Movement Minutes over last 24 Hours
-              </h2>
-
-              {sensorError && (
-                <p className="dashboard-panel__text">Error: {sensorError}</p>
-              )}
-
-              {!sensorSummary && !sensorError && (
-                <p className="dashboard-panel__text">
-                  Loading movement minutes...
-                </p>
-              )}
-
-              {sensorSummary && (
-                <div style={{ width: "100%", height: 280 }}>
-                  <ResponsiveContainer>
-                    <BarChart data={movementMinutesData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" />
-                      <YAxis />
-                      <Tooltip formatter={(value: number) => `${value} mins`} />
-                      <Bar dataKey="minutes" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              )}
-            </section>
-
-            <section className="dashboard-panel">
-              <h2 className="dashboard-panel__title">Today’s Activity</h2>
-
-              {!latestDay && (
-                <p className="dashboard-panel__text">No activity data available.</p>
-              )}
-
-              {latestDay && (
-                <div style={{ display: "grid", gap: "16px" }}>
-                  {activityRows.map((row) => {
-                    const widthPercent = (row.value / maxActivityValue) * 100;
-
-                    return (
-                      <div key={row.label}>
-                        <div
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            marginBottom: 6,
-                            fontSize: 14,
-                            fontWeight: 600,
-                            color: "#374151",
-                          }}
-                        >
-                          <span>{row.label}</span>
-                          <span>{row.value} mins</span>
-                        </div>
-
-                        <div
-                          style={{
-                            width: "100%",
-                            height: 14,
-                            background: "#e5e7eb",
-                            borderRadius: 999,
-                            overflow: "hidden",
-                          }}
-                        >
-                          <div
-                            style={{
-                              width: `${widthPercent}%`,
-                              height: "100%",
-                              background: "#3b82f6",
-                              borderRadius: 999,
-                            }}
-                          />
-                        </div>
+                  return (
+                    <div key={row.label}>
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          marginBottom: 6,
+                          fontSize: 14,
+                          fontWeight: 600,
+                          color: "#374151",
+                        }}
+                      >
+                        <span>{row.label}</span>
+                        <span>{row.value} mins</span>
                       </div>
-                    );
-                  })}
-                </div>
-              )}
-            </section>
-          </div>
-        )}
-      </main>
-    </div>
+
+                      <div
+                        style={{
+                          width: "100%",
+                          height: 14,
+                          background: "#e5e7eb",
+                          borderRadius: 999,
+                          overflow: "hidden",
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: `${widthPercent}%`,
+                            height: "100%",
+                            background: "#3b82f6",
+                            borderRadius: 999,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        </div>
+      )}
+    </AppLayout>
   );
 }

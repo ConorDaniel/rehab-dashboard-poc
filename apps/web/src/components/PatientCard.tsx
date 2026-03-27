@@ -63,7 +63,7 @@ function formatActivityDate(date?: string): string {
 }
 
 function getCardBackground(sensorConnected: boolean, alertActive: boolean): string {
-  if (alertActive) return "#eff6ff"; // blue alert
+  if (alertActive) return "#eff6ff";
   return sensorConnected ? "#dcfce7" : "#fee2e2";
 }
 
@@ -83,6 +83,7 @@ export default function PatientCard({
   const today = patient.todayMetrics;
 
   const sensorConnected = isRecentIsoTime(patient.device?.lastTelemetryAt, 15000);
+  const piConnected = isRecentIsoTime(patient.device?.lastHeartbeatAt, 75000);
   const displayHeartRate = today?.heartRate ?? today?.restingHeartRate ?? null;
   const alertActive = !!patient.sensor?.alertActive;
 
@@ -95,11 +96,7 @@ export default function PatientCard({
         background: cardBackground,
       }}
     >
-      {alertActive && (
-        <div className="patient-card__alert-badge">
-          ALERT
-        </div>
-      )}
+      {alertActive && <div className="patient-card__alert-badge">ALERT</div>}
 
       <div
         className="patient-card__name"
@@ -140,6 +137,11 @@ export default function PatientCard({
           <div className="patient-card__meta" style={{ marginBottom: 8 }}>
             Sensor connected
             <StatusDot connected={sensorConnected} />
+          </div>
+
+          <div className="patient-card__meta" style={{ marginBottom: 8 }}>
+            Pi connected
+            <StatusDot connected={piConnected} />
           </div>
 
           {alertActive && (

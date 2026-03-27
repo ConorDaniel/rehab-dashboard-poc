@@ -294,6 +294,147 @@ button {
   grid-column: span 2;
 }
 
+/* WELCOME PAGE */
+.welcome-page {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 72vh;
+  padding: 32px 0;
+  border-radius: 24px;
+  overflow: hidden;
+  background:
+    linear-gradient(rgba(15, 23, 42, 0.45), rgba(15, 23, 42, 0.45)),
+    url("/rehab-gym-bg.jpg") center center / cover no-repeat;
+}
+
+/* fallback if no image is present */
+.welcome-page:not(:has(.welcome-overlay)) {
+  background: linear-gradient(180deg, #e8eef7 0%, #dbe7f4 100%);
+}
+
+.welcome-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.08),
+    rgba(255, 255, 255, 0.02)
+  );
+  pointer-events: none;
+}
+
+.welcome-card {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 620px;
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid rgba(229, 231, 235, 0.9);
+  border-radius: 22px;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.18);
+  padding: 36px;
+  backdrop-filter: blur(4px);
+}
+
+.welcome-title {
+  margin: 0 0 16px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 2rem;
+  line-height: 1.2;
+  font-weight: 800;
+  color: #111827;
+  text-align: center;
+}
+
+.welcome-subtitle {
+  margin: 0 0 32px 0;
+  font-size: 1rem;
+  color: #4b5563;
+  text-align: center;
+}
+
+.welcome-form {
+  display: grid;
+  gap: 22px;
+}
+
+.welcome-field {
+  display: grid;
+  gap: 10px;
+}
+
+.welcome-field label {
+  font-size: 0.96rem;
+  font-weight: 700;
+  color: #374151;
+}
+
+.welcome-field select,
+.welcome-field input {
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 14px;
+  border: 1px solid #cfd6df;
+  border-radius: 12px;
+  font-size: 1rem;
+  background: #ffffff;
+  color: #111827;
+}
+
+.welcome-field input[readonly] {
+  background: #f9fafb;
+}
+
+.welcome-button {
+  margin-top: 10px;
+  width: 100%;
+  border: none;
+  border-radius: 12px;
+  padding: 14px 16px;
+  background: #2563eb;
+  color: #ffffff;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 180ms ease, transform 180ms ease;
+}
+
+.welcome-button:hover {
+  background: #1d4ed8;
+  transform: translateY(-1px);
+}
+
+@media (max-width: 640px) {
+  .welcome-page {
+    min-height: auto;
+    padding: 16px 0;
+    border-radius: 18px;
+  }
+
+  .welcome-card {
+    padding: 24px;
+    border-radius: 18px;
+  }
+
+  .welcome-title {
+    font-size: 1.55rem;
+    gap: 4px;
+  }
+
+  .welcome-subtitle {
+    font-size: 0.95rem;
+    margin-bottom: 24px;
+  }
+
+  .welcome-form {
+    gap: 18px;
+  }
+}
+
 @media (max-width: 640px) {
   .app-header__inner,
   .app-footer__inner {

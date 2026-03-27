@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import AppLayout from "../components/AppLayout";
 import PatientCard from "../components/PatientCard";
 import { fetchPatients } from "../services/patientService";
 import type { Patient } from "../types/patient";
@@ -23,11 +24,11 @@ export default function PatientListPage() {
       }
     };
 
-    loadPatients(); // initial load
+    loadPatients();
 
     const interval = setInterval(() => {
       loadPatients();
-    }, 5000); // poll every 5 seconds
+    }, 5000);
 
     return () => clearInterval(interval);
   }, []);
@@ -40,48 +41,35 @@ export default function PatientListPage() {
   const statusClass = error
     ? "app-status app-status--error"
     : patients.length > 0
-    ? "app-status app-status--live"
-    : "app-status app-status--loading";
+      ? "app-status app-status--live"
+      : "app-status app-status--loading";
 
   return (
-    <div className="app-shell">
-      <header className="app-header">
-        <div className="app-header__inner">
-          <div>
-            <div className="app-title">Rehab Dashboard PoC</div>
-            <div className="app-subtitle">Rehab Hospital X • Ward 1</div>
-          </div>
+    <AppLayout
+      title="Rehab Dashboard PoC"
+      subtitle="Rehab Hospital X • Ward 1"
+      statusText={statusText}
+      statusClass={statusClass}
+      footerLeft="Rehab Dashboard PoC"
+      footerRight={lastUpdated ? `Last updated: ${lastUpdated}` : ""}
+    >
+      {error && <div className="status status--error">Error: {error}</div>}
 
-          <div className={statusClass}>{statusText}</div>
+      {!error && patients.length === 0 && (
+        <div className="status">Loading patient cards…</div>
+      )}
+
+      {patients.length > 0 && (
+        <div className="patient-grid">
+          {patients.map((patient) => (
+            <PatientCard
+              key={patient.id}
+              patient={patient}
+              onOpenDashboard={handleOpenDashboard}
+            />
+          ))}
         </div>
-      </header>
-
-      <main className="app-main">
-        {error && <div className="status status--error">Error: {error}</div>}
-
-        {!error && patients.length === 0 && (
-          <div className="status">Loading patient cards…</div>
-        )}
-
-        {patients.length > 0 && (
-          <div className="patient-grid">
-            {patients.map((patient) => (
-              <PatientCard
-                key={patient.id}
-                patient={patient}
-                onOpenDashboard={handleOpenDashboard}
-              />
-            ))}
-          </div>
-        )}
-      </main>
-
-      <footer className="app-footer">
-        <div className="app-footer__inner">
-          <div>Rehab Dashboard PoC</div>
-          <div>{lastUpdated ? `Last updated: ${lastUpdated}` : ""}</div>
-        </div>
-      </footer>
-    </div>
+      )}
+    </AppLayout>
   );
 }
