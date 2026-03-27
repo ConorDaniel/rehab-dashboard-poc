@@ -7,8 +7,6 @@ PATIENT_ID = "p1"
 API_URL = "http://192.168.1.57:4000/heartbeat"
 
 HEARTBEAT_INTERVAL = 60
-DISCONNECT_THRESHOLD = 10
-
 LAST_SEEN_FILE = "/tmp/p1_last_seen"
 
 
@@ -24,15 +22,14 @@ while True:
     now = time.time()
     last_seen = get_last_seen()
 
-    age = now - last_seen
-    connected = age < DISCONNECT_THRESHOLD
+    age = now - last_seen if last_seen > 0 else None
 
     payload = {
         "type": "heartbeat",
         "piId": PI_ID,
         "patientId": PATIENT_ID,
-        "connected": connected,
-        "lastFrameAgeSec": round(age, 2),
+        "connected": True,  # heartbeat itself means Pi is alive
+        "lastFrameAgeSec": round(age, 2) if age is not None else None,
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
