@@ -3,6 +3,7 @@ export type Patient = {
   name: string;
   room: string;
   bed: string;
+  pictureUrl?: string | null;
   piId?: string | null;
 
   wardId?: string | null;

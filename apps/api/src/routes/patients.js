@@ -44,6 +44,7 @@ function registerPatientRoutes(server) {
             name: data.name,
             room: data.room,
             bed: data.bed,
+            pictureUrl: data.pictureUrl || null,
             piId,
             wardId: data.wardId ?? null,
             hospitalId: data.hospitalId ?? null,

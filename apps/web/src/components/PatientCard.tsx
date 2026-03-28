@@ -1,5 +1,9 @@
 import type { Patient } from "../types/patient";
 import { useNavigate } from "react-router-dom";
+import { useState } from "react";
+
+const fallbackImage =
+"https://res.cloudinary.com/dycaquyie/image/upload/w_300,h_300,c_fill,q_auto,f_auto/v1769462996/pettapost/gaknbray2b2i6ldwl08n.png"
 
 type PatientCardProps = {
   patient: Patient;
@@ -18,11 +22,13 @@ function getSensorLabel(patient: Patient): string {
 function getSensorClass(patient: Patient): string {
   if (!patient.sensor) return "patient-card__status patient-card__status--unknown";
 
-  if (patient.sensor.currentState === "REST")
+  if (patient.sensor.currentState === "REST") {
     return "patient-card__status patient-card__status--rest";
+  }
 
-  if (patient.sensor.currentState === "MOVING")
+  if (patient.sensor.currentState === "MOVING") {
     return "patient-card__status patient-card__status--moving";
+  }
 
   return "patient-card__status patient-card__status--unknown";
 }
@@ -76,15 +82,13 @@ export default function PatientCard({
 }: PatientCardProps) {
   const navigate = useNavigate();
   const today = patient.todayMetrics;
+  const [imageSrc, setImageSrc] = useState(patient.pictureUrl || fallbackImage);
 
   const sensorConnected = isRecentIsoTime(patient.device?.lastTelemetryAt, 15000);
   const piConnected = isRecentIsoTime(patient.device?.lastHeartbeatAt, 75000);
 
-  const displayHeartRate =
-    today?.heartRate ?? today?.restingHeartRate ?? null;
-
+  const displayHeartRate = today?.heartRate ?? today?.restingHeartRate ?? null;
   const alertActive = !!patient.sensor?.alertActive;
-
   const cardBackground = getCardBackground(sensorConnected, alertActive);
 
   return (
@@ -150,17 +154,23 @@ export default function PatientCard({
             height: 112,
             borderRadius: 12,
             background: "#e5e7eb",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: 13,
-            color: "#6b7280",
-            fontWeight: 600,
-            flexShrink: 0,
             overflow: "hidden",
+            flexShrink: 0,
+            border: "1px solid #d1d5db",
+            boxShadow: "0 1px 2px rgba(0,0,0,0.06)",
           }}
         >
-          Headshot
+          <img
+            src={imageSrc}
+            alt={`${patient.name} headshot`}
+            onError={() => setImageSrc(fallbackImage)}
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              display: "block",
+            }}
+          />
         </div>
       </div>
 
@@ -186,7 +196,9 @@ export default function PatientCard({
           fontWeight: 600,
         }}
       >
-        <span aria-hidden="true" style={{ fontSize: 18 }}>👣</span>
+        <span aria-hidden="true" style={{ fontSize: 18 }}>
+          👣
+        </span>
         <span>Steps: {today?.steps ?? 0}</span>
       </div>
 
