@@ -335,9 +335,11 @@ export default function PatientDashboardPage() {
                   <XAxis dataKey="date" />
                   <YAxis />
                   <Tooltip
-                    formatter={(value: number | null) =>
-                      value == null ? "No data" : `${value} bpm`
-                    }
+                    formatter={(value: unknown) => {
+                    if (value == null) return "No data";
+                    if (Array.isArray(value)) return value.join(", ");
+                    return `${value} bpm`;
+                   }}
                   />
                   <Bar
                     dataKey="displayHeartRate"
@@ -394,7 +396,13 @@ export default function PatientDashboardPage() {
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="name" />
                     <YAxis />
-                    <Tooltip formatter={(value: number) => `${value} mins`} />
+                    <Tooltip
+                      formatter={(value: unknown) => {
+                      if (value == null) return "No data";
+                      if (Array.isArray(value)) return value.join(", ");
+                      return `${value} mins`;
+                    }}
+                  />
                     <Bar dataKey="minutes" fill="#3b82f6" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>

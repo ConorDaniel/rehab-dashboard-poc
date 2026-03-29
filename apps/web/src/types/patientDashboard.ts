@@ -2,6 +2,7 @@ export type DailyMetric = {
   date: string;
   steps?: number;
   heartRate?: number | null;
+  restingHeartRate?: number | null;
   sedentaryMinutes?: number;
   lightlyActiveMinutes?: number;
   fairlyActiveMinutes?: number;
