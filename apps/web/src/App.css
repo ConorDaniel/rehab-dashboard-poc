@@ -222,9 +222,11 @@ button {
 /* ALERT STATE */
 .patient-card--alert {
   border-color: #dc2626;
-  background: rgba(254, 242, 242, 0.9);
-  box-shadow: 0 0 0 6px rgba(220, 38, 38, 0.14);
-  animation: patientAlertPulse 1.2s infinite;
+  background: rgba(254, 242, 242, 0.94);
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.12),
+    0 0 0 8px rgba(220, 38, 38, 0.22);
+  animation: patientAlertPulse 1s ease-in-out infinite;
 }
 
 .patient-card__alert-badge {
@@ -249,13 +251,19 @@ button {
 
 @keyframes patientAlertPulse {
   0% {
-    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.28);
+    box-shadow:
+      0 8px 24px rgba(0, 0, 0, 0.12),
+      0 0 0 0 rgba(220, 38, 38, 0.34);
   }
   70% {
-    box-shadow: 0 0 0 14px rgba(220, 38, 38, 0);
+    box-shadow:
+      0 8px 24px rgba(0, 0, 0, 0.12),
+      0 0 0 18px rgba(220, 38, 38, 0);
   }
   100% {
-    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0);
+    box-shadow:
+      0 8px 24px rgba(0, 0, 0, 0.12),
+      0 0 0 0 rgba(220, 38, 38, 0);
   }
 }
 
