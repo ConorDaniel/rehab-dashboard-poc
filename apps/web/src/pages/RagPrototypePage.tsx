@@ -103,7 +103,7 @@ export default function RagPrototypePage() {
 
           <button
             className="patient-card__button"
-            onClick={() => navigate(-1)}
+            onClick={() => navigate("/patients")}
           >
             Back
           </button>

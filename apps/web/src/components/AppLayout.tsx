@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import "../App.css";
 
 type AppLayoutProps = {
   title: string;
@@ -20,26 +21,32 @@ export default function AppLayout({
   children,
 }: AppLayoutProps) {
   return (
-    <div className="app-shell">
-      <header className="app-header">
-        <div className="app-header__inner">
-          <div>
-            <div className="app-title">{title}</div>
-            {subtitle && <div className="app-subtitle">{subtitle}</div>}
+    <>
+      {/* Background layer */}
+      <div className="app-background" />
+
+      {/* Main layout */}
+      <div className="app-shell">
+        <header className="app-header">
+          <div className="app-header__inner">
+            <div>
+              <div className="app-title">{title}</div>
+              {subtitle && <div className="app-subtitle">{subtitle}</div>}
+            </div>
+
+            {statusText && <div className={statusClass}>{statusText}</div>}
           </div>
+        </header>
 
-          {statusText && <div className={statusClass}>{statusText}</div>}
-        </div>
-      </header>
+        <main className="app-main">{children}</main>
 
-      <main className="app-main">{children}</main>
-
-      <footer className="app-footer">
-        <div className="app-footer__inner">
-          <div>{footerLeft ?? title}</div>
-          <div>{footerRight ?? ""}</div>
-        </div>
-      </footer>
-    </div>
+        <footer className="app-footer">
+          <div className="app-footer__inner">
+            <div>{footerLeft ?? title}</div>
+            <div>{footerRight ?? ""}</div>
+          </div>
+        </footer>
+      </div>
+    </>
   );
 }

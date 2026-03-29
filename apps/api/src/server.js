@@ -2,7 +2,7 @@ require("dotenv").config();
 
 const Hapi = require("@hapi/hapi");
 const { registerHeartbeatRoutes } = require("./systemcheck/heartbeat");
-const { startPiPing } = require("./systemcheck/piPing");
+// const { startPiPing } = require("./systemcheck/piPing");
 
 const { registerPatientRoutes } = require("./routes/patients");
 const { registerFitbitRoutes } = require("./routes/fitbit");
@@ -32,7 +32,7 @@ const init = async () => {
   await server.start();
   console.log("API running on", server.info.uri);
 
-  startPiPing();
+  // startPiPing();
 
   syncAllFitbitsOnStartup().catch((err) => {
     console.error("Startup Fitbit sync crashed:", err.message);
