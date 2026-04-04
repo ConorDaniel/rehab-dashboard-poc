@@ -15,17 +15,16 @@ PATIENT_ID = "p1"
 
 PRIMARY_API_URL = "https://rehab-dashboard-poc.onrender.com/telemetry"
 
-# Increased HZ to catch state changes faster, 
-# but we will throttle the POST calls specifically.
-PRINT_RATE_HZ = 5 
+# Sensor check / terminal print frequency
+PRINT_RATE_HZ = 5
 
 # Hysteresis thresholds
-# Since your rest is '10', we set REST_THRESHOLD to 12.0
 MOVING_THRESHOLD = 20.0
 REST_THRESHOLD = 12.0
 
-REST_HEARTBEAT_SECONDS = 10
-MOVING_SAMPLE_RATE_SECONDS = 2.0  # Only send a 'sample' every 2s while moving
+# Sample posting frequency
+MOVING_SAMPLE_RATE_SECONDS = 2.0
+REST_HEARTBEAT_SECONDS = 10.0
 
 LAST_SEEN_FILE = "/tmp/p1_last_seen"
 
@@ -43,14 +42,12 @@ def utc_now_iso() -> str:
 
 
 def post(payload: dict) -> None:
-    """Synchronous POST with a tight timeout to prevent long hangs."""
     try:
-        # Reduced timeout to 1.5s so we don't fall too far behind reality
-        response = requests.post(PRIMARY_API_URL, json=payload, timeout=1.5)
+        response = requests.post(PRIMARY_API_URL, json=payload, timeout=1.0)
         response.raise_for_status()
         print(f"POST ok -> {payload.get('type')} ({payload.get('state')})")
     except Exception as e:
-        print(f"POST failed: {e}")
+        print(f"POST failed -> {e}")
 
 
 def handle_data(device):
@@ -66,25 +63,24 @@ def handle_data(device):
 
     now = time.time()
 
-    # 1. Heartbeat file update (Non-blocking)
+    # update heartbeat file
     if now - _last_seen_write > 0.2:
         try:
             with open(LAST_SEEN_FILE, "w") as f:
                 f.write(str(now))
-        except:
+        except Exception:
             pass
         _last_seen_write = now
 
-    # 2. Throttle the sensor processing loop
+    # throttle sensor processing / terminal output
     if now - _last_tick < 1.0 / PRINT_RATE_HZ:
         return
     _last_tick = now
 
-    # 3. Calculate Magnitude
+    # calculate gyro magnitude
     gmag = math.sqrt(gx * gx + gy * gy + gz * gz)
 
-    # 4. Hysteresis Logic
-    # If Gmag is 10 at rest, and threshold is 12, this will now correctly trigger REST.
+    # hysteresis state logic
     if _current_state is None:
         new_state = "MOVING" if gmag > MOVING_THRESHOLD else "REST"
     elif _current_state == "REST":
@@ -92,11 +88,12 @@ def handle_data(device):
     else:  # currently MOVING
         new_state = "REST" if gmag < REST_THRESHOLD else "MOVING"
 
-    # 5. Handle State Change (Highest Priority)
+    # apply state change immediately
     if _current_state is None or new_state != _current_state:
         old_state = _current_state
         _current_state = new_state
-        print(f"!!! STATE CHANGE: {old_state} -> {_current_state} (Gmag: {gmag:.2f})")
+
+        print(f"STATE CHANGE → {old_state} -> {_current_state}  (Gmag: {gmag:.2f})")
 
         post({
             "type": "state_change",
@@ -106,18 +103,24 @@ def handle_data(device):
             "gmag": gmag,
             "timestamp": utc_now_iso(),
         })
-        # Force a sample to be sent immediately after a state change
-        _last_sample_sent_time = 0 
 
-    # 6. Sample Reporting Logic (Throttled to prevent network lag)
+        # force an immediate sample after a state change
+        _last_sample_sent_time = 0.0
+
+    # print live sensor readings and current state
+    print(
+        f"Gx:{gx:7.2f}  Gy:{gy:7.2f}  Gz:{gz:7.2f}  |  "
+        f"Gmag:{gmag:7.2f}  state:{_current_state}"
+    )
+
+    # sample posting logic
     send_sample = False
-    
+
     if _current_state == "MOVING":
-        # Only send a 'moving' update every 2 seconds
         if (now - _last_sample_sent_time) >= MOVING_SAMPLE_RATE_SECONDS:
             send_sample = True
+
     elif _current_state == "REST":
-        # Only send a 'rest' heartbeat every 10 seconds
         if (now - _last_sample_sent_time) >= REST_HEARTBEAT_SECONDS:
             send_sample = True
 
@@ -137,7 +140,6 @@ async def main():
     while True:
         try:
             print(f"Connecting to BLE sensor {TARGET_MAC}...")
-            # Ensure handle_data is passed correctly
             dm = DeviceModel("WitSensor", TARGET_MAC, handle_data)
             await dm.openDevice()
         except Exception as e:
