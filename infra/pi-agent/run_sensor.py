@@ -14,7 +14,6 @@ PI_ID = "pi-p1"
 PATIENT_ID = "p1"
 
 PRIMARY_API_URL = "https://rehab-dashboard-poc.onrender.com/telemetry"
-FALLBACK_API_URL = "http://192.168.1.57:4000/telemetry"
 
 PRINT_RATE_HZ = 2
 
@@ -40,18 +39,12 @@ def utc_now_iso() -> str:
 
 
 def post(payload: dict) -> None:
-    urls = [PRIMARY_API_URL, FALLBACK_API_URL]
-
-    for url in urls:
-        try:
-            response = requests.post(url, json=payload, timeout=3)
-            response.raise_for_status()
-            print(f"POST ok -> {url}")
-            return
-        except Exception as e:
-            print(f"POST failed -> {url}: {e}")
-
-    print("POST failed on both primary and fallback URLs.")
+    try:
+        response = requests.post(PRIMARY_API_URL, json=payload, timeout=1)
+        response.raise_for_status()
+        print(f"POST ok -> {PRIMARY_API_URL}")
+    except Exception as e:
+        print(f"POST failed -> {PRIMARY_API_URL}: {e}")
 
 
 def handle_data(device):
@@ -154,4 +147,7 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("\nStopped by user")
