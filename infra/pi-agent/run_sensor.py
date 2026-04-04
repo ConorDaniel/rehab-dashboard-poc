@@ -16,12 +16,11 @@ PATIENT_ID = "p1"
 PRIMARY_API_URL = "https://rehab-dashboard-poc.onrender.com/telemetry"
 FALLBACK_API_URL = "http://192.168.1.57:4000/telemetry"
 
-PRINT_RATE_HZ = 4
-MOVEMENT_THRESHOLD = 8
+PRINT_RATE_HZ = 2
 
-# 🔹 Separate debounce timings
-MOVING_PERSIST_SECONDS = 2.0
-REST_PERSIST_SECONDS = 1.0
+# Hysteresis thresholds
+MOVING_THRESHOLD = 20
+REST_THRESHOLD = 8
 
 REST_HEARTBEAT_SECONDS = 10
 
@@ -32,12 +31,7 @@ LAST_SEEN_FILE = "/tmp/p1_last_seen"
 _last_tick = 0.0
 _last_seen_write = 0.0
 
-_raw_state = None
-_raw_state_since = 0.0
-
-_stable_state = None
-_stable_state_since = 0.0
-
+_current_state = None
 _last_rest_sample_sent = 0.0
 
 
@@ -60,15 +54,9 @@ def post(payload: dict) -> None:
     print("POST failed on both primary and fallback URLs.")
 
 
-def get_required_persist_seconds(candidate_state: str) -> float:
-    return REST_PERSIST_SECONDS if candidate_state == "REST" else MOVING_PERSIST_SECONDS
-
-
 def handle_data(device):
     global _last_tick, _last_seen_write
-    global _raw_state, _raw_state_since
-    global _stable_state, _stable_state_since
-    global _last_rest_sample_sent
+    global _current_state, _last_rest_sample_sent
 
     gx = device.get("AsX")
     gy = device.get("AsY")
@@ -79,6 +67,7 @@ def handle_data(device):
 
     now = time.time()
 
+    # heartbeat file update
     if now - _last_seen_write > 0.2:
         try:
             with open(LAST_SEEN_FILE, "w") as f:
@@ -87,94 +76,69 @@ def handle_data(device):
             print("last_seen write failed:", e)
         _last_seen_write = now
 
+    # throttle loop
     if now - _last_tick < 1.0 / PRINT_RATE_HZ:
         return
     _last_tick = now
 
     gmag = math.sqrt(gx * gx + gy * gy + gz * gz)
-    instant_state = "MOVING" if gmag > MOVEMENT_THRESHOLD else "REST"
+
+    # ===== HYSTERESIS STATE LOGIC =====
+    if _current_state is None:
+        instant_state = "MOVING" if gmag > MOVING_THRESHOLD else "REST"
+
+    elif _current_state == "REST":
+        instant_state = "MOVING" if gmag > MOVING_THRESHOLD else "REST"
+
+    else:  # currently MOVING
+        instant_state = "REST" if gmag < REST_THRESHOLD else "MOVING"
 
     print(
         f"Gx:{gx:7.2f}  Gy:{gy:7.2f}  Gz:{gz:7.2f}  |  "
-        f"Gmag:{gmag:7.2f}  instant:{instant_state}  stable:{_stable_state}"
+        f"Gmag:{gmag:7.2f}  state:{instant_state}"
     )
 
-    # Raw state tracking
-    if _raw_state is None:
-        _raw_state = instant_state
-        _raw_state_since = now
-    elif instant_state != _raw_state:
-        _raw_state = instant_state
-        _raw_state_since = now
+    # ===== STATE CHANGE =====
+    if _current_state is None or instant_state != _current_state:
+        _current_state = instant_state
 
-    # Initial stable state
-    if _stable_state is None:
-        _stable_state = _raw_state
-        _stable_state_since = now
-
-        print(f"INITIAL STATE → {_stable_state}")
+        print(f"STATE CHANGE → {_current_state}")
 
         post({
             "type": "state_change",
             "piId": PI_ID,
             "patientId": PATIENT_ID,
-            "state": _stable_state,
+            "state": _current_state,
             "gmag": gmag,
             "timestamp": utc_now_iso(),
         })
-        return
 
-    # Promote raw → stable with asymmetric debounce
-    if _raw_state != _stable_state:
-        required = get_required_persist_seconds(_raw_state)
+        # reset REST timing so we send one immediate sample
+        if _current_state == "REST":
+            _last_rest_sample_sent = 0.0
 
-        if (now - _raw_state_since) >= required:
-            _stable_state = _raw_state
-            _stable_state_since = now
-
-            print(f"STATE CHANGE → {_stable_state}")
-
-            post({
-                "type": "state_change",
-                "piId": PI_ID,
-                "patientId": PATIENT_ID,
-                "state": _stable_state,
-                "gmag": gmag,
-                "timestamp": utc_now_iso(),
-            })
-
-            # 🔹 Immediate REST sample (fixes perceived lag)
-            if _stable_state == "REST":
-                _last_rest_sample_sent = now
-                post({
-                    "type": "sample",
-                    "piId": PI_ID,
-                    "patientId": PATIENT_ID,
-                    "state": _stable_state,
-                    "gmag": gmag,
-                    "timestamp": utc_now_iso(),
-                })
-                return
-
+    # ===== SAMPLE LOGIC =====
     send_sample = False
 
-    if _stable_state == "MOVING":
+    if _current_state == "MOVING":
         send_sample = True
 
-    elif _stable_state == "REST":
-        if (now - _last_rest_sample_sent) >= REST_HEARTBEAT_SECONDS:
+    elif _current_state == "REST":
+        if _last_rest_sample_sent == 0.0 or (now - _last_rest_sample_sent) >= REST_HEARTBEAT_SECONDS:
             send_sample = True
-            _last_rest_sample_sent = now
 
     if send_sample:
         post({
             "type": "sample",
             "piId": PI_ID,
             "patientId": PATIENT_ID,
-            "state": _stable_state,
+            "state": _current_state,
             "gmag": gmag,
             "timestamp": utc_now_iso(),
         })
+
+        if _current_state == "REST":
+            _last_rest_sample_sent = now
 
 
 async def main():
