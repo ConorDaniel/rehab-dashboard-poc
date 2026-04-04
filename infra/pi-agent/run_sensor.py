@@ -19,7 +19,10 @@ FALLBACK_API_URL = "http://192.168.1.57:4000/telemetry"
 PRINT_RATE_HZ = 4
 MOVEMENT_THRESHOLD = 8
 
-STATE_CHANGE_PERSIST_SECONDS = 3
+# 🔹 Separate debounce timings
+MOVING_PERSIST_SECONDS = 2.0
+REST_PERSIST_SECONDS = 1.0
+
 REST_HEARTBEAT_SECONDS = 10
 
 LAST_SEEN_FILE = "/tmp/p1_last_seen"
@@ -57,6 +60,10 @@ def post(payload: dict) -> None:
     print("POST failed on both primary and fallback URLs.")
 
 
+def get_required_persist_seconds(candidate_state: str) -> float:
+    return REST_PERSIST_SECONDS if candidate_state == "REST" else MOVING_PERSIST_SECONDS
+
+
 def handle_data(device):
     global _last_tick, _last_seen_write
     global _raw_state, _raw_state_since
@@ -89,20 +96,23 @@ def handle_data(device):
 
     print(
         f"Gx:{gx:7.2f}  Gy:{gy:7.2f}  Gz:{gz:7.2f}  |  "
-        f"Gmag:{gmag:7.2f}  {instant_state}"
+        f"Gmag:{gmag:7.2f}  instant:{instant_state}  stable:{_stable_state}"
     )
 
+    # Raw state tracking
     if _raw_state is None:
         _raw_state = instant_state
         _raw_state_since = now
-
-    if instant_state != _raw_state:
+    elif instant_state != _raw_state:
         _raw_state = instant_state
         _raw_state_since = now
 
+    # Initial stable state
     if _stable_state is None:
         _stable_state = _raw_state
         _stable_state_since = now
+
+        print(f"INITIAL STATE → {_stable_state}")
 
         post({
             "type": "state_change",
@@ -114,23 +124,37 @@ def handle_data(device):
         })
         return
 
-    if (
-        _raw_state != _stable_state
-        and (now - _raw_state_since) >= STATE_CHANGE_PERSIST_SECONDS
-    ):
-        _stable_state = _raw_state
-        _stable_state_since = now
+    # Promote raw → stable with asymmetric debounce
+    if _raw_state != _stable_state:
+        required = get_required_persist_seconds(_raw_state)
 
-        print(f"STATE CHANGE → {_stable_state}")
+        if (now - _raw_state_since) >= required:
+            _stable_state = _raw_state
+            _stable_state_since = now
 
-        post({
-            "type": "state_change",
-            "piId": PI_ID,
-            "patientId": PATIENT_ID,
-            "state": _stable_state,
-            "gmag": gmag,
-            "timestamp": utc_now_iso(),
-        })
+            print(f"STATE CHANGE → {_stable_state}")
+
+            post({
+                "type": "state_change",
+                "piId": PI_ID,
+                "patientId": PATIENT_ID,
+                "state": _stable_state,
+                "gmag": gmag,
+                "timestamp": utc_now_iso(),
+            })
+
+            # 🔹 Immediate REST sample (fixes perceived lag)
+            if _stable_state == "REST":
+                _last_rest_sample_sent = now
+                post({
+                    "type": "sample",
+                    "piId": PI_ID,
+                    "patientId": PATIENT_ID,
+                    "state": _stable_state,
+                    "gmag": gmag,
+                    "timestamp": utc_now_iso(),
+                })
+                return
 
     send_sample = False
 
