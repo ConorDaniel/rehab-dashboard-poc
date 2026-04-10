@@ -37,39 +37,6 @@ function registerTelemetryRoutes(server) {
             .code(400);
         }
 
-        const patientRef = db().collection("patients").doc(patientId);
-        const patientSnap = await patientRef.get();
-
-        if (!patientSnap.exists) {
-          return h.response({ message: "Patient not found" }).code(404);
-        }
-
-        const previousSensor = patientSnap.data().sensor || {};
-        const nowIso = new Date().toISOString();
-
-        // Refresh telemetry freshness for any telemetry message
-        await db().collection("devices").doc(piId).set(
-          {
-            piId,
-            patientId,
-            lastTelemetryAt: timestamp,
-            updatedAt: nowIso,
-          },
-          { merge: true }
-        );
-
-        // Update basic patient sensor freshness for any telemetry message
-        await patientRef.set(
-          {
-            sensor: {
-              lastSeenAt: timestamp,
-              lastGmag: typeof gmag === "number" ? gmag : null,
-            },
-          },
-          { merge: true }
-        );
-
-        // Accept only sample and state_change
         if (type !== "sample" && type !== "state_change") {
           return h
             .response({ message: `Unsupported telemetry type: ${type}` })
@@ -82,7 +49,38 @@ function registerTelemetryRoutes(server) {
             .code(400);
         }
 
-        // Persist only state changes
+        const patientRef = db().collection("patients").doc(patientId);
+        const patientSnap = await patientRef.get();
+
+        if (!patientSnap.exists) {
+          return h.response({ message: "Patient not found" }).code(404);
+        }
+
+        const previousSensor = patientSnap.data().sensor || {};
+        const nowIso = new Date().toISOString();
+
+        await db().collection("devices").doc(piId).set(
+          {
+            piId,
+            patientId,
+            lastTelemetryAt: timestamp,
+            updatedAt: nowIso,
+          },
+          { merge: true }
+        );
+
+        if (type === "sample") {
+          await patientRef.set(
+            {
+              sensor: {
+                lastSeenAt: timestamp,
+                lastGmag: typeof gmag === "number" ? gmag : null,
+              },
+            },
+            { merge: true }
+          );
+        }
+
         if (type === "state_change") {
           console.log(`Writing sensor event for ${patientId}: ${state}`);
 
@@ -97,7 +95,6 @@ function registerTelemetryRoutes(server) {
             createdAt: nowIso,
           });
 
-          // Update live state transition summary
           await patientRef.set(
             {
               sensor: {
@@ -111,7 +108,6 @@ function registerTelemetryRoutes(server) {
           );
         }
 
-        // Evaluate alert logic for BOTH sample and state_change
         await evaluateMovementAlert({
           patientRef,
           previousSensor,
