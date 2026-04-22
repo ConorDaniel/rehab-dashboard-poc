@@ -32,12 +32,23 @@ const init = async () => {
   await server.start();
   console.log("API running on", server.info.uri);
 
-  // startPiPing();
-
+  // Get fitbit at start up
   syncAllFitbitsOnStartup().catch((err) => {
     console.error("Startup Fitbit sync crashed:", err.message);
   });
+
+  // Poll every 10 mins
+  const POLL_INTERVAL_MS = 10 * 60 * 1000;
+
+  setInterval(() => {
+    console.log("Running scheduled Fitbit sync...");
+
+    syncAllFitbitsOnStartup().catch((err) => {
+      console.error("Scheduled Fitbit sync crashed:", err.message);
+    });
+  }, POLL_INTERVAL_MS);
 };
+
 
 init().catch((err) => {
   console.error(err);
